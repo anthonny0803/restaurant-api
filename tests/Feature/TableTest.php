@@ -54,7 +54,9 @@ class TableTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'data' => [['id', 'name', 'min_capacity', 'max_capacity', 'location', 'is_active']],
+                'data'  => [['id', 'name', 'min_capacity', 'max_capacity', 'location', 'is_active']],
+                'links',
+                'meta',
             ]);
     }
 

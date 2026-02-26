@@ -8,17 +8,16 @@ use App\Http\Resources\TableResource;
 use App\Models\Table;
 use App\Services\TableService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class TableController extends Controller
 {
     public function __construct(private TableService $service) {}
 
-    public function index(): AnonymousResourceCollection
+    public function index(): JsonResponse
     {
         $this->authorize('viewAny', Table::class);
 
-        return TableResource::collection($this->service->getAll());
+        return TableResource::collection($this->service->paginate())->response();
     }
 
     public function store(CreateTableRequest $request): JsonResponse
