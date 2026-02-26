@@ -4,20 +4,15 @@ namespace App\Services;
 
 use App\Models\Table;
 use App\Repositories\TableRepository;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class TableService
 {
     public function __construct(private TableRepository $repository) {}
 
-    public function getAll(): Collection
+    public function paginate(int $perPage = 15): LengthAwarePaginator
     {
-        return $this->repository->all();
-    }
-
-    public function getById(int $id): ?Table
-    {
-        return $this->repository->find($id);
+        return $this->repository->paginate($perPage);
     }
 
     public function create(array $data): Table

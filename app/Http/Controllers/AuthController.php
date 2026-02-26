@@ -20,8 +20,10 @@ class AuthController extends Controller
         $result = $this->authService->register($request->validated());
 
         return response()->json([
-            'user'  => new UserResource($result['user']),
-            'token' => $result['token'],
+            'data' => [
+                'user'  => new UserResource($result['user']),
+                'token' => $result['token'],
+            ],
         ], 201);
     }
 
@@ -30,8 +32,10 @@ class AuthController extends Controller
         $result = $this->authService->login($request->validated());
 
         return response()->json([
-            'user'  => new UserResource($result['user']),
-            'token' => $result['token'],
+            'data' => [
+                'user'  => new UserResource($result['user']),
+                'token' => $result['token'],
+            ],
         ]);
     }
 

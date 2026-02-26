@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Repositories\UserRepository;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -16,14 +17,18 @@ class AuthService
 
     public function register(array $data): array
     {
-        $user = $this->userRepository->create([
-            'name'     => $data['name'],
-            'email'    => $data['email'],
-            'password' => $data['password'],
-        ]);
+        $user = DB::transaction(function () use ($data) {
+            $user = $this->userRepository->create([
+                'name'     => $data['name'],
+                'email'    => $data['email'],
+                'password' => $data['password'],
+            ]);
 
-        $user->assignRole('client');
-        $user->clientProfile()->create([]);
+            $user->assignRole('client');
+            $user->clientProfile()->create([]);
+
+            return $user;
+        });
 
         $token = $user->createToken('api-token')->plainTextToken;
 
