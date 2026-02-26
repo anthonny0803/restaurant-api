@@ -102,7 +102,7 @@ class TableTest extends TestCase
         $response = $this->actingAs($this->adminUser())
             ->deleteJson("/api/tables/{$table->id}");
 
-        $response->assertStatus(200);
+        $response->assertStatus(204);
 
         $this->assertDatabaseMissing('tables', ['id' => $table->id]);
     }
