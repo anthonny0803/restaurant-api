@@ -54,7 +54,9 @@ class TableTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'data' => [['id', 'name', 'min_capacity', 'max_capacity', 'location', 'is_active']],
+                'data'  => [['id', 'name', 'min_capacity', 'max_capacity', 'location', 'is_active']],
+                'links',
+                'meta',
             ]);
     }
 
@@ -102,7 +104,7 @@ class TableTest extends TestCase
         $response = $this->actingAs($this->adminUser())
             ->deleteJson("/api/tables/{$table->id}");
 
-        $response->assertStatus(200);
+        $response->assertStatus(204);
 
         $this->assertDatabaseMissing('tables', ['id' => $table->id]);
     }

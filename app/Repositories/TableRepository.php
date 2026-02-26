@@ -3,13 +3,13 @@
 namespace App\Repositories;
 
 use App\Models\Table;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class TableRepository
 {
-    public function all(): Collection
+    public function paginate(int $perPage = 15): LengthAwarePaginator
     {
-        return Table::all();
+        return Table::paginate($perPage);
     }
 
     public function find(int $id): ?Table
