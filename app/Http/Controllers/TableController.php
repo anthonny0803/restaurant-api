@@ -52,6 +52,6 @@ class TableController extends Controller
 
         $this->service->delete($table);
 
-        return response()->json(['message' => 'Mesa eliminada correctamente']);
+        return response()->json(null, 204);
     }
 }
