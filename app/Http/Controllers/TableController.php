@@ -23,6 +23,8 @@ class TableController extends Controller
 
     public function store(CreateTableRequest $request): JsonResponse
     {
+        $this->authorize('create', Table::class);
+
         $table = $this->service->create($request->validated());
 
         return (new TableResource($table))->response()->setStatusCode(201);
@@ -37,6 +39,8 @@ class TableController extends Controller
 
     public function update(UpdateTableRequest $request, Table $table): TableResource
     {
+        $this->authorize('update', $table);
+
         $table = $this->service->update($table, $request->validated());
 
         return new TableResource($table);
