@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\DTOs\LoginDTO;
+use App\DTOs\RegisterDTO;
 use App\Models\User;
 use App\Repositories\UserRepository;
 use Illuminate\Support\Facades\DB;
@@ -15,13 +17,13 @@ class AuthService
         private UserRepository $userRepository
     ) {}
 
-    public function register(array $data): array
+    public function register(RegisterDTO $dto): array
     {
-        $user = DB::transaction(function () use ($data) {
+        $user = DB::transaction(function () use ($dto) {
             $user = $this->userRepository->create([
-                'name'     => $data['name'],
-                'email'    => $data['email'],
-                'password' => $data['password'],
+                'name'     => $dto->name,
+                'email'    => $dto->email,
+                'password' => $dto->password,
             ]);
 
             $user->assignRole('client');
@@ -35,11 +37,11 @@ class AuthService
         return ['user' => $user, 'token' => $token];
     }
 
-    public function login(array $data): array
+    public function login(LoginDTO $dto): array
     {
-        $user = $this->userRepository->findByEmail($data['email']);
+        $user = $this->userRepository->findByEmail($dto->email);
 
-        if (! $user || ! Hash::check($data['password'], $user->password)) {
+        if (! $user || ! Hash::check($dto->password, $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Las credenciales proporcionadas son incorrectas.'],
             ]);
