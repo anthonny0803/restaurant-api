@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\DTOs\StoreTableDTO;
+use App\DTOs\UpdateTableDTO;
 use App\Http\Requests\CreateTableRequest;
 use App\Http\Requests\UpdateTableRequest;
 use App\Http\Resources\TableResource;
@@ -24,7 +26,7 @@ class TableController extends Controller
     {
         $this->authorize('create', Table::class);
 
-        $table = $this->service->create($request->validated());
+        $table = $this->service->create(new StoreTableDTO(...$request->validated()));
 
         return (new TableResource($table))->response()->setStatusCode(201);
     }
@@ -40,7 +42,7 @@ class TableController extends Controller
     {
         $this->authorize('update', $table);
 
-        $table = $this->service->update($table, $request->validated());
+        $table = $this->service->update($table, new UpdateTableDTO(...$request->validated()));
 
         return new TableResource($table);
     }

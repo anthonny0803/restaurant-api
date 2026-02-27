@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\DTOs\StoreTableDTO;
+use App\DTOs\UpdateTableDTO;
 use App\Models\Table;
 use App\Repositories\TableRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -15,14 +17,14 @@ class TableService
         return $this->repository->paginate($perPage);
     }
 
-    public function create(array $data): Table
+    public function create(StoreTableDTO $dto): Table
     {
-        return $this->repository->create($data);
+        return $this->repository->create(get_object_vars($dto));
     }
 
-    public function update(Table $table, array $data): Table
+    public function update(Table $table, UpdateTableDTO $dto): Table
     {
-        return $this->repository->update($table, $data);
+        return $this->repository->update($table, $dto->toArray());
     }
 
     public function delete(Table $table): void
