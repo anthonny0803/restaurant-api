@@ -1,0 +1,20 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\RestaurantSetting;
+use Illuminate\Database\Seeder;
+
+class RestaurantSettingSeeder extends Seeder
+{
+    public function run(): void
+    {
+        RestaurantSetting::firstOrCreate([], [
+            'deposit_per_person' => 5.00,
+            'cancellation_deadline_hours' => 24,
+            'refund_percentage' => 50,
+            'admin_fee_percentage' => 10,
+            'default_reservation_duration_minutes' => 120,
+        ]);
+    }
+}
