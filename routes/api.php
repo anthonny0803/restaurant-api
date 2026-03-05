@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\MenuItemController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\TableController;
@@ -19,6 +20,7 @@ Route::prefix('auth')->group(function () {
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('tables', TableController::class);
+    Route::apiResource('menu-items', MenuItemController::class);
 
     Route::prefix('reservations')->group(function () {
         Route::post('/', [ReservationController::class, 'store']);
