@@ -19,6 +19,17 @@ class MenuItemRepository
         return $query->paginate($perPage);
     }
 
+    public function paginateForClient(?MenuCategory $category = null, int $perPage = 15): LengthAwarePaginator
+    {
+        $query = MenuItem::available()->inStock();
+
+        if ($category) {
+            $query->byCategory($category);
+        }
+
+        return $query->paginate($perPage);
+    }
+
     public function find(int $id): ?MenuItem
     {
         return MenuItem::find($id);
