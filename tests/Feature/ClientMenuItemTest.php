@@ -83,14 +83,12 @@ class ClientMenuItemTest extends TestCase
             ->assertJsonCount(1, 'data');
     }
 
-    public function test_invalid_category_returns_all_available_items(): void
+    public function test_invalid_category_returns_validation_error(): void
     {
-        MenuItem::factory()->count(3)->create();
-
         $response = $this->getJson('/api/menu-items?category=invalida');
 
-        $response->assertStatus(200)
-            ->assertJsonCount(3, 'data');
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['category']);
     }
 
     public function test_response_is_paginated(): void

@@ -64,15 +64,13 @@ class MenuItemTest extends TestCase
             ->assertJsonCount(2, 'data');
     }
 
-    public function test_invalid_category_filter_returns_all_items(): void
+    public function test_invalid_category_filter_returns_validation_error(): void
     {
-        MenuItem::factory()->count(3)->create();
-
         $response = $this->actingAs($this->adminUser())
             ->getJson('/api/menu-items?category=invalida');
 
-        $response->assertStatus(200)
-            ->assertJsonCount(3, 'data');
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['category']);
     }
 
     // --- Create ---
