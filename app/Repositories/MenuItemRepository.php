@@ -51,4 +51,14 @@ class MenuItemRepository
     {
         $menuItem->delete();
     }
+
+    public function decrementStock(MenuItem $menuItem, int $quantity): void
+    {
+        $menuItem->decrement('daily_stock', $quantity);
+    }
+
+    public function incrementStock(MenuItem $menuItem, int $quantity): void
+    {
+        $menuItem->increment('daily_stock', $quantity);
+    }
 }
