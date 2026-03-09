@@ -6,6 +6,7 @@ use App\Enums\MenuCategory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MenuItem extends Model
 {
@@ -27,6 +28,13 @@ class MenuItem extends Model
             'category' => MenuCategory::class,
             'is_available' => 'boolean',
         ];
+    }
+
+    // Relationships
+
+    public function reservationItems(): HasMany
+    {
+        return $this->hasMany(ReservationItem::class);
     }
 
     // Scopes

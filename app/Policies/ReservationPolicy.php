@@ -26,4 +26,9 @@ class ReservationPolicy
     {
         return $user->hasRole('admin') || $user->id === $reservation->user_id;
     }
+
+    public function managePreOrders(User $user, Reservation $reservation): bool
+    {
+        return $user->id === $reservation->user_id;
+    }
 }
