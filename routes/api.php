@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Client\MenuItemController as ClientMenuItemController;
 use App\Http\Controllers\MenuItemController;
+use App\Http\Controllers\PreOrderController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\TableController;
@@ -30,6 +31,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [ReservationController::class, 'index']);
         Route::get('/{reservation}', [ReservationController::class, 'show']);
         Route::post('/{reservation}/cancel', [ReservationController::class, 'cancel']);
+
+        Route::prefix('/{reservation}/pre-orders')->scopeBindings()->group(function () {
+            Route::get('/', [PreOrderController::class, 'index']);
+            Route::post('/', [PreOrderController::class, 'store']);
+            Route::delete('/{reservationItem}', [PreOrderController::class, 'destroy']);
+        });
     });
 });
 
