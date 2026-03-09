@@ -46,6 +46,8 @@ class PreOrderService
                 $this->menuItemRepository->decrementStock($menuItem, $dto->quantity);
             }
 
+            $item->setRelation('menuItem', $menuItem);
+
             return $item;
         });
     }

@@ -32,7 +32,7 @@ class PreOrderController extends Controller
             quantity: $request->validated('quantity'),
         ));
 
-        return (new ReservationItemResource($item->load('menuItem')))->response()->setStatusCode(201);
+        return (new ReservationItemResource($item))->response()->setStatusCode(201);
     }
 
     public function destroy(Reservation $reservation, ReservationItem $reservationItem): JsonResponse

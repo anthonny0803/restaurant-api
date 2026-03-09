@@ -11,13 +11,6 @@ class ReservationItemRepository
         return ReservationItem::create($data);
     }
 
-    public function update(ReservationItem $item, array $data): ReservationItem
-    {
-        $item->update($data);
-
-        return $item;
-    }
-
     public function delete(ReservationItem $item): void
     {
         $item->delete();
