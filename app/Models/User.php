@@ -33,6 +33,11 @@ class User extends Authenticatable
         ];
     }
 
+    public function isGuest(): bool
+    {
+        return $this->password === null;
+    }
+
     public function clientProfile(): HasOne
     {
         return $this->hasOne(ClientProfile::class);

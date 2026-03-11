@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Client\MenuItemController as ClientMenuItemController;
+use App\Http\Controllers\GuestReservationController;
 use App\Http\Controllers\MenuItemController;
 use App\Http\Controllers\PreOrderController;
 use App\Http\Controllers\ReservationController;
@@ -17,10 +18,12 @@ Route::prefix('auth')->group(function () {
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
+        Route::post('/complete-account', [AuthController::class, 'completeAccount']);
     });
 });
 
 Route::get('menu-items', [ClientMenuItemController::class, 'index']);
+Route::post('guest/reservations', [GuestReservationController::class, 'store']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('tables', TableController::class);
