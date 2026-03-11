@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\DTOs\CompleteAccountDTO;
 use App\DTOs\LoginDTO;
 use App\DTOs\RegisterDTO;
 use App\Models\User;
@@ -50,6 +51,21 @@ class AuthService
         $token = $user->createToken('api-token')->plainTextToken;
 
         return ['user' => $user, 'token' => $token];
+    }
+
+    public function completeAccount(CompleteAccountDTO $dto): User
+    {
+        $user = $this->userRepository->findOrFail($dto->user_id);
+
+        if (! $user->isGuest()) {
+            throw ValidationException::withMessages([
+                'account' => ['Esta cuenta ya tiene una contrasena establecida.'],
+            ]);
+        }
+
+        $user->update(['password' => $dto->password]);
+
+        return $user;
     }
 
     public function logout(User $user): void
