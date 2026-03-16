@@ -26,6 +26,7 @@ class Reservation extends Model
         'end_time',
         'status',
         'expires_at',
+        'reminder_sent_at',
     ];
 
     protected function casts(): array
@@ -33,6 +34,7 @@ class Reservation extends Model
         return [
             'date' => 'date',
             'expires_at' => 'datetime',
+            'reminder_sent_at' => 'datetime',
         ];
     }
 

@@ -4,6 +4,9 @@ namespace App\Services;
 
 use App\DTOs\HoldReservationDTO;
 use App\Jobs\ExpireReservationJob;
+use App\Notifications\ReservationCancelledNotification;
+use App\Notifications\ReservationConfirmedNotification;
+use App\Models\Payment;
 use App\Models\Reservation;
 use App\Models\Table;
 use App\Repositories\ReservationRepository;
@@ -123,7 +126,13 @@ class ReservationService
 
         $this->reservationRepository->updateStatus($reservation, Reservation::STATUS_CONFIRMED);
 
-        return $reservation->fresh();
+        $reservation = $reservation->fresh();
+
+        if ($reservation->user) {
+            $reservation->user->notify(new ReservationConfirmedNotification($reservation));
+        }
+
+        return $reservation;
     }
 
     public function cancel(Reservation $reservation): Reservation
@@ -139,22 +148,26 @@ class ReservationService
         $this->reservationRepository->updateStatus($reservation, Reservation::STATUS_CANCELLED);
 
         $payment = $reservation->payment;
+        $refundAmount = null;
 
-        if (! $payment || $payment->status !== \App\Models\Payment::STATUS_SUCCEEDED) {
-            return $reservation->fresh();
-        }
+        if ($payment && $payment->status === Payment::STATUS_SUCCEEDED) {
+            $snapshot = $reservation->cancellationPolicySnapshot;
+            $hoursUntilReservation = now()->diffInHours($reservationDateTime, false);
 
-        $snapshot = $reservation->cancellationPolicySnapshot;
-        $hoursUntilReservation = now()->diffInHours($reservationDateTime, false);
+            $refundAmount = $hoursUntilReservation >= $snapshot->cancellation_deadline_hours
+                ? (float) $payment->amount
+                : (float) $payment->amount * $snapshot->refund_percentage / 100;
 
-        if ($hoursUntilReservation >= $snapshot->cancellation_deadline_hours) {
-            $this->paymentService->refund($payment, (float) $payment->amount);
-        } else {
-            $refundAmount = (float) $payment->amount * $snapshot->refund_percentage / 100;
             $this->paymentService->refund($payment, $refundAmount);
         }
 
-        return $reservation->fresh();
+        $reservation = $reservation->fresh();
+
+        if ($reservation->user) {
+            $reservation->user->notify(new ReservationCancelledNotification($reservation, $refundAmount));
+        }
+
+        return $reservation;
     }
 
     public function find(int $id): ?Reservation
