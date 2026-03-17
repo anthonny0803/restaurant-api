@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Client\MenuItemController as ClientMenuItemController;
 use App\Http\Controllers\GuestReservationController;
@@ -41,6 +42,12 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('/{reservationItem}', [PreOrderController::class, 'destroy']);
         });
     });
+});
+
+Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin/analytics')->group(function () {
+    Route::get('/occupancy', [AnalyticsController::class, 'occupancy']);
+    Route::get('/revenue', [AnalyticsController::class, 'revenue']);
+    Route::get('/top-menu-items', [AnalyticsController::class, 'topMenuItems']);
 });
 
 Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle']);
