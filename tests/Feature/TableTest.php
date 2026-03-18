@@ -147,6 +147,24 @@ class TableTest extends TestCase
             ->assertJsonValidationErrors(['max_capacity']);
     }
 
+    public function test_admin_can_clear_nullable_fields(): void
+    {
+        $table = Table::create($this->tableData(['description' => 'Mesa junto a la ventana']));
+
+        $response = $this->actingAs($this->adminUser())
+            ->putJson("/api/admin/tables/{$table->id}", [
+                'description' => null,
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.description', null);
+
+        $this->assertDatabaseHas('tables', [
+            'id' => $table->id,
+            'description' => null,
+        ]);
+    }
+
     public function test_show_returns_404_for_nonexistent_table(): void
     {
         $response = $this->actingAs($this->adminUser())
