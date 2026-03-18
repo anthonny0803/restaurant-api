@@ -326,7 +326,7 @@ class ReservationTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->adminUser())
-            ->getJson('/api/reservations');
+            ->getJson('/api/admin/reservations');
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data');
@@ -364,7 +364,7 @@ class ReservationTest extends TestCase
         $reservation = $this->createReservation($this->clientUser(), $table);
 
         $response = $this->actingAs($this->adminUser())
-            ->getJson("/api/reservations/{$reservation->id}");
+            ->getJson("/api/admin/reservations/{$reservation->id}");
 
         $response->assertStatus(200)
             ->assertJsonPath('data.id', $reservation->id);
