@@ -45,14 +45,14 @@ class ReservationRepository
             ->exists();
     }
 
-    public function paginateForUser(int $userId, int $perPage = 15): LengthAwarePaginator
+    public function paginateForUser(int $userId, int $perPage = 6): LengthAwarePaginator
     {
         return Reservation::where('user_id', $userId)
             ->latest()
             ->paginate($perPage);
     }
 
-    public function paginate(int $perPage = 15): LengthAwarePaginator
+    public function paginate(int $perPage = 6): LengthAwarePaginator
     {
         return Reservation::latest()
             ->paginate($perPage);
