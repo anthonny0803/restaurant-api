@@ -3,34 +3,19 @@
 namespace Tests\Feature;
 
 use App\Models\Table;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use Tests\Traits\CreatesUsers;
 
 class TableTest extends TestCase
 {
     use RefreshDatabase;
+    use CreatesUsers;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->seed(\Database\Seeders\RoleSeeder::class);
-    }
-
-    private function adminUser(): User
-    {
-        $user = User::factory()->create();
-        $user->assignRole('admin');
-
-        return $user;
-    }
-
-    private function clientUser(): User
-    {
-        $user = User::factory()->create();
-        $user->assignRole('client');
-
-        return $user;
     }
 
     private function tableData(array $overrides = []): array
@@ -47,7 +32,7 @@ class TableTest extends TestCase
 
     public function test_admin_can_list_tables(): void
     {
-        Table::create($this->tableData());
+        Table::factory()->create();
 
         $response = $this->actingAs($this->adminUser())
             ->getJson('/api/admin/tables');
@@ -75,7 +60,7 @@ class TableTest extends TestCase
 
     public function test_admin_can_view_a_table(): void
     {
-        $table = Table::create($this->tableData());
+        $table = Table::factory()->create();
 
         $response = $this->actingAs($this->adminUser())
             ->getJson("/api/admin/tables/{$table->id}");
@@ -86,7 +71,7 @@ class TableTest extends TestCase
 
     public function test_admin_can_update_a_table(): void
     {
-        $table = Table::create($this->tableData());
+        $table = Table::factory()->create();
 
         $response = $this->actingAs($this->adminUser())
             ->putJson("/api/admin/tables/{$table->id}", ['name' => 'Mesa Actualizada']);
@@ -99,7 +84,7 @@ class TableTest extends TestCase
 
     public function test_admin_can_delete_a_table(): void
     {
-        $table = Table::create($this->tableData());
+        $table = Table::factory()->create();
 
         $response = $this->actingAs($this->adminUser())
             ->deleteJson("/api/admin/tables/{$table->id}");
@@ -126,7 +111,7 @@ class TableTest extends TestCase
 
     public function test_table_name_must_be_unique(): void
     {
-        Table::create($this->tableData());
+        Table::factory()->create(['name' => 'Mesa 1']);
 
         $response = $this->actingAs($this->adminUser())
             ->postJson('/api/admin/tables', $this->tableData());
@@ -149,7 +134,7 @@ class TableTest extends TestCase
 
     public function test_admin_can_clear_nullable_fields(): void
     {
-        $table = Table::create($this->tableData(['description' => 'Mesa junto a la ventana']));
+        $table = Table::factory()->create(['description' => 'Mesa junto a la ventana']);
 
         $response = $this->actingAs($this->adminUser())
             ->putJson("/api/admin/tables/{$table->id}", [

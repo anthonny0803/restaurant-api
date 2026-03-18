@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Jobs\ExpireReservationJob;
 use App\Models\Payment;
-use App\Models\Reservation;
 use App\Models\Table;
 use App\Models\User;
 use App\Services\PaymentService;
@@ -31,24 +30,13 @@ class GuestReservationTest extends TestCase
         $this->app->instance(PaymentService::class, $this->paymentServiceMock);
     }
 
-    private function createTable(array $overrides = []): Table
-    {
-        return Table::create(array_merge([
-            'name' => 'Mesa ' . uniqid(),
-            'min_capacity' => 2,
-            'max_capacity' => 4,
-            'location' => 'interior',
-            'is_active' => true,
-        ], $overrides));
-    }
-
     private function guestHoldData(array $overrides = []): array
     {
         return array_merge([
             'name' => 'Juan Perez',
             'email' => 'juan@example.com',
             'phone' => '+34612345678',
-            'table_id' => $this->createTable()->id,
+            'table_id' => Table::factory()->create()->id,
             'seats_requested' => 2,
             'date' => now()->addDays(3)->format('Y-m-d'),
             'start_time' => '20:00',
@@ -75,7 +63,7 @@ class GuestReservationTest extends TestCase
         Queue::fake();
         $this->mockPaymentIntent();
 
-        $table = $this->createTable();
+        $table = Table::factory()->create();
 
         $response = $this->postJson('/api/guest/reservations', $this->guestHoldData([
             'table_id' => $table->id,
@@ -129,7 +117,7 @@ class GuestReservationTest extends TestCase
         $lazyUser->assignRole('client');
         $lazyUser->clientProfile()->create(['phone' => '+34612345678']);
 
-        $table = $this->createTable();
+        $table = Table::factory()->create();
 
         $response = $this->postJson('/api/guest/reservations', $this->guestHoldData([
             'email' => 'lazy@example.com',
@@ -173,8 +161,8 @@ class GuestReservationTest extends TestCase
                 'client_secret' => 'pi_test_first_secret',
             ]);
 
-        $table = $this->createTable();
-        $secondTable = $this->createTable();
+        $table = Table::factory()->create();
+        $secondTable = Table::factory()->create();
 
         $this->postJson('/api/guest/reservations', $this->guestHoldData([
             'table_id' => $table->id,

@@ -6,7 +6,6 @@ use App\Jobs\ExpireReservationJob;
 use App\Jobs\SendReservationRemindersJob;
 use App\Models\Payment;
 use App\Models\Reservation;
-use App\Models\Table;
 use App\Models\User;
 use App\Notifications\ReservationCancelledNotification;
 use App\Notifications\ReservationConfirmedNotification;
@@ -20,10 +19,12 @@ use Mockery\MockInterface;
 use Stripe\Event;
 use Stripe\Webhook;
 use Tests\TestCase;
+use Tests\Traits\CreatesUsers;
 
 class ReservationNotificationTest extends TestCase
 {
     use RefreshDatabase;
+    use CreatesUsers;
 
     private PaymentService&MockInterface $paymentServiceMock;
 
@@ -36,48 +37,6 @@ class ReservationNotificationTest extends TestCase
 
         $this->paymentServiceMock = Mockery::mock(PaymentService::class);
         $this->app->instance(PaymentService::class, $this->paymentServiceMock);
-    }
-
-    private function clientUser(): User
-    {
-        $user = User::factory()->create();
-        $user->assignRole('client');
-
-        return $user;
-    }
-
-    private function createTable(array $overrides = []): Table
-    {
-        return Table::create(array_merge([
-            'name' => 'Mesa ' . uniqid(),
-            'min_capacity' => 2,
-            'max_capacity' => 4,
-            'location' => 'interior',
-            'is_active' => true,
-        ], $overrides));
-    }
-
-    private function createReservation(User $user, Table $table, array $overrides = []): Reservation
-    {
-        $reservation = Reservation::create(array_merge([
-            'user_id' => $user->id,
-            'table_id' => $table->id,
-            'seats_requested' => 2,
-            'date' => now()->addDays(3)->format('Y-m-d'),
-            'start_time' => '20:00:00',
-            'end_time' => '22:00:00',
-            'status' => Reservation::STATUS_CONFIRMED,
-            'expires_at' => now()->addMinutes(15),
-        ], $overrides));
-
-        $reservation->cancellationPolicySnapshot()->create([
-            'cancellation_deadline_hours' => 24,
-            'refund_percentage' => 50,
-            'admin_fee_percentage' => 10,
-            'policy_accepted_at' => now(),
-        ]);
-
-        return $reservation;
     }
 
     // ── Confirmation ──────────────────────────────────────────
@@ -104,14 +63,12 @@ class ReservationNotificationTest extends TestCase
         Notification::fake();
 
         $client = $this->clientUser();
-        $table = $this->createTable();
-        $reservation = $this->createReservation($client, $table, [
-            'status' => Reservation::STATUS_PENDING,
+        $reservation = Reservation::factory()->pending()->withCancellationPolicy()->create([
+            'user_id' => $client->id,
         ]);
 
-        $payment = $reservation->payment()->create([
-            'amount' => 10.00,
-            'status' => Payment::STATUS_PENDING,
+        $payment = Payment::factory()->create([
+            'reservation_id' => $reservation->id,
             'payment_gateway_id' => 'pi_test_confirm',
         ]);
 
@@ -142,15 +99,11 @@ class ReservationNotificationTest extends TestCase
         Notification::fake();
 
         $client = $this->clientUser();
-        $table = $this->createTable();
-        $reservation = $this->createReservation($client, $table);
-
-        $reservation->payment()->create([
-            'amount' => 10.00,
-            'status' => Payment::STATUS_SUCCEEDED,
-            'payment_gateway_id' => 'pi_test_cancel',
-            'paid_at' => now(),
+        $reservation = Reservation::factory()->withCancellationPolicy()->create([
+            'user_id' => $client->id,
         ]);
+
+        Payment::factory()->succeeded()->create(['reservation_id' => $reservation->id]);
 
         $this->paymentServiceMock
             ->shouldReceive('refund')
@@ -167,9 +120,8 @@ class ReservationNotificationTest extends TestCase
         Notification::fake();
 
         $client = $this->clientUser();
-        $table = $this->createTable();
-        $reservation = $this->createReservation($client, $table, [
-            'status' => Reservation::STATUS_PENDING,
+        $reservation = Reservation::factory()->pending()->withCancellationPolicy()->create([
+            'user_id' => $client->id,
         ]);
 
         $this->paymentServiceMock->shouldNotReceive('refund');
@@ -187,9 +139,8 @@ class ReservationNotificationTest extends TestCase
         Notification::fake();
 
         $client = $this->clientUser();
-        $table = $this->createTable();
-        $reservation = $this->createReservation($client, $table, [
-            'status' => Reservation::STATUS_PENDING,
+        $reservation = Reservation::factory()->pending()->withCancellationPolicy()->create([
+            'user_id' => $client->id,
         ]);
 
         $job = new ExpireReservationJob($reservation->id);
@@ -208,9 +159,8 @@ class ReservationNotificationTest extends TestCase
         ]);
         $guestUser->assignRole('client');
 
-        $table = $this->createTable();
-        $reservation = $this->createReservation($guestUser, $table, [
-            'status' => Reservation::STATUS_PENDING,
+        $reservation = Reservation::factory()->pending()->withCancellationPolicy()->create([
+            'user_id' => $guestUser->id,
         ]);
 
         $job = new ExpireReservationJob($reservation->id);
@@ -226,9 +176,9 @@ class ReservationNotificationTest extends TestCase
         Notification::fake();
 
         $client = $this->clientUser();
-        $table = $this->createTable();
 
-        $reservation = $this->createReservation($client, $table, [
+        $reservation = Reservation::factory()->withCancellationPolicy()->create([
+            'user_id' => $client->id,
             'date' => now()->addHours(12)->format('Y-m-d'),
             'start_time' => now()->addHours(12)->format('H:i:s'),
         ]);
@@ -249,9 +199,9 @@ class ReservationNotificationTest extends TestCase
         Notification::fake();
 
         $client = $this->clientUser();
-        $table = $this->createTable();
 
-        $this->createReservation($client, $table, [
+        Reservation::factory()->withCancellationPolicy()->create([
+            'user_id' => $client->id,
             'date' => now()->addHours(12)->format('Y-m-d'),
             'start_time' => now()->addHours(12)->format('H:i:s'),
             'created_at' => now(),
@@ -271,9 +221,9 @@ class ReservationNotificationTest extends TestCase
         Notification::fake();
 
         $client = $this->clientUser();
-        $table = $this->createTable();
 
-        $this->createReservation($client, $table, [
+        Reservation::factory()->withCancellationPolicy()->create([
+            'user_id' => $client->id,
             'date' => now()->addHours(12)->format('Y-m-d'),
             'start_time' => now()->addHours(12)->format('H:i:s'),
             'created_at' => now()->subDays(2),

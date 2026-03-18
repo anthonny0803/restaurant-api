@@ -5,14 +5,14 @@ namespace Tests\Feature;
 use App\Models\MenuItem;
 use App\Models\Reservation;
 use App\Models\ReservationItem;
-use App\Models\Table;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use Tests\Traits\CreatesUsers;
 
 class PreOrderTest extends TestCase
 {
     use RefreshDatabase;
+    use CreatesUsers;
 
     protected function setUp(): void
     {
@@ -21,45 +21,12 @@ class PreOrderTest extends TestCase
         $this->seed(\Database\Seeders\RoleSeeder::class);
     }
 
-    private function clientUser(): User
-    {
-        $user = User::factory()->create();
-        $user->assignRole('client');
-
-        return $user;
-    }
-
-    private function createTable(): Table
-    {
-        return Table::create([
-            'name' => 'Mesa ' . uniqid(),
-            'min_capacity' => 2,
-            'max_capacity' => 4,
-            'location' => 'interior',
-            'is_active' => true,
-        ]);
-    }
-
-    private function createConfirmedReservation(User $user): Reservation
-    {
-        return Reservation::create([
-            'user_id' => $user->id,
-            'table_id' => $this->createTable()->id,
-            'seats_requested' => 2,
-            'date' => now()->addDays(3)->format('Y-m-d'),
-            'start_time' => '20:00:00',
-            'end_time' => '22:00:00',
-            'status' => Reservation::STATUS_CONFIRMED,
-            'expires_at' => now()->addMinutes(15),
-        ]);
-    }
-
     // ── Index ─────────────────────────────────────────────────
 
     public function test_client_can_list_pre_orders_of_own_reservation(): void
     {
         $client = $this->clientUser();
-        $reservation = $this->createConfirmedReservation($client);
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
         $menuItem = MenuItem::factory()->create();
 
         ReservationItem::factory()->create([
@@ -88,7 +55,7 @@ class PreOrderTest extends TestCase
     public function test_list_returns_empty_when_no_pre_orders(): void
     {
         $client = $this->clientUser();
-        $reservation = $this->createConfirmedReservation($client);
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
 
         $response = $this->actingAs($client)
             ->getJson("/api/reservations/{$reservation->id}/pre-orders");
@@ -102,7 +69,7 @@ class PreOrderTest extends TestCase
     public function test_client_can_add_pre_order_to_confirmed_reservation(): void
     {
         $client = $this->clientUser();
-        $reservation = $this->createConfirmedReservation($client);
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
         $menuItem = MenuItem::factory()->create(['price' => '12.50', 'daily_stock' => 10]);
 
         $response = $this->actingAs($client)
@@ -128,7 +95,7 @@ class PreOrderTest extends TestCase
     public function test_store_decrements_daily_stock(): void
     {
         $client = $this->clientUser();
-        $reservation = $this->createConfirmedReservation($client);
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
         $menuItem = MenuItem::factory()->create(['daily_stock' => 10]);
 
         $this->actingAs($client)
@@ -146,7 +113,7 @@ class PreOrderTest extends TestCase
     public function test_store_does_not_decrement_unlimited_stock(): void
     {
         $client = $this->clientUser();
-        $reservation = $this->createConfirmedReservation($client);
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
         $menuItem = MenuItem::factory()->unlimitedStock()->create();
 
         $this->actingAs($client)
@@ -164,8 +131,7 @@ class PreOrderTest extends TestCase
     public function test_store_rejects_if_reservation_not_confirmed(): void
     {
         $client = $this->clientUser();
-        $reservation = $this->createConfirmedReservation($client);
-        $reservation->update(['status' => Reservation::STATUS_PENDING]);
+        $reservation = Reservation::factory()->pending()->create(['user_id' => $client->id]);
         $menuItem = MenuItem::factory()->create();
 
         $response = $this->actingAs($client)
@@ -181,7 +147,7 @@ class PreOrderTest extends TestCase
     public function test_store_rejects_unavailable_menu_item(): void
     {
         $client = $this->clientUser();
-        $reservation = $this->createConfirmedReservation($client);
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
         $menuItem = MenuItem::factory()->unavailable()->create();
 
         $response = $this->actingAs($client)
@@ -197,7 +163,7 @@ class PreOrderTest extends TestCase
     public function test_store_rejects_insufficient_stock(): void
     {
         $client = $this->clientUser();
-        $reservation = $this->createConfirmedReservation($client);
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
         $menuItem = MenuItem::factory()->create(['daily_stock' => 2]);
 
         $response = $this->actingAs($client)
@@ -213,7 +179,7 @@ class PreOrderTest extends TestCase
     public function test_store_rejects_duplicate_menu_item(): void
     {
         $client = $this->clientUser();
-        $reservation = $this->createConfirmedReservation($client);
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
         $menuItem = MenuItem::factory()->create(['daily_stock' => 20]);
 
         ReservationItem::factory()->create([
@@ -235,7 +201,7 @@ class PreOrderTest extends TestCase
     public function test_store_rejects_nonexistent_menu_item(): void
     {
         $client = $this->clientUser();
-        $reservation = $this->createConfirmedReservation($client);
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
 
         $response = $this->actingAs($client)
             ->postJson("/api/reservations/{$reservation->id}/pre-orders", [
@@ -250,7 +216,7 @@ class PreOrderTest extends TestCase
     public function test_store_rejects_invalid_quantity(): void
     {
         $client = $this->clientUser();
-        $reservation = $this->createConfirmedReservation($client);
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
         $menuItem = MenuItem::factory()->create();
 
         $response = $this->actingAs($client)
@@ -268,7 +234,7 @@ class PreOrderTest extends TestCase
     public function test_client_can_remove_pre_order(): void
     {
         $client = $this->clientUser();
-        $reservation = $this->createConfirmedReservation($client);
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
         $menuItem = MenuItem::factory()->create();
 
         $item = ReservationItem::factory()->create([
@@ -290,7 +256,7 @@ class PreOrderTest extends TestCase
     public function test_destroy_releases_stock(): void
     {
         $client = $this->clientUser();
-        $reservation = $this->createConfirmedReservation($client);
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
         $menuItem = MenuItem::factory()->create(['daily_stock' => 7]);
 
         $item = ReservationItem::factory()->create([
@@ -312,7 +278,7 @@ class PreOrderTest extends TestCase
     public function test_destroy_does_not_modify_unlimited_stock(): void
     {
         $client = $this->clientUser();
-        $reservation = $this->createConfirmedReservation($client);
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
         $menuItem = MenuItem::factory()->unlimitedStock()->create();
 
         $item = ReservationItem::factory()->create([
@@ -333,7 +299,7 @@ class PreOrderTest extends TestCase
     public function test_destroy_rejects_if_reservation_not_confirmed(): void
     {
         $client = $this->clientUser();
-        $reservation = $this->createConfirmedReservation($client);
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
         $menuItem = MenuItem::factory()->create();
 
         $item = ReservationItem::factory()->create([
@@ -357,7 +323,7 @@ class PreOrderTest extends TestCase
     {
         $owner = $this->clientUser();
         $other = $this->clientUser();
-        $reservation = $this->createConfirmedReservation($owner);
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $owner->id]);
 
         $response = $this->actingAs($other)
             ->getJson("/api/reservations/{$reservation->id}/pre-orders");
@@ -369,7 +335,7 @@ class PreOrderTest extends TestCase
     {
         $owner = $this->clientUser();
         $other = $this->clientUser();
-        $reservation = $this->createConfirmedReservation($owner);
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $owner->id]);
         $menuItem = MenuItem::factory()->create();
 
         $response = $this->actingAs($other)
@@ -385,7 +351,7 @@ class PreOrderTest extends TestCase
     {
         $owner = $this->clientUser();
         $other = $this->clientUser();
-        $reservation = $this->createConfirmedReservation($owner);
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $owner->id]);
         $menuItem = MenuItem::factory()->create();
 
         $item = ReservationItem::factory()->create([
@@ -402,7 +368,7 @@ class PreOrderTest extends TestCase
 
     public function test_unauthenticated_user_cannot_access_pre_orders(): void
     {
-        $reservation = $this->createConfirmedReservation($this->clientUser());
+        $reservation = Reservation::factory()->confirmed()->create();
 
         $this->getJson("/api/reservations/{$reservation->id}/pre-orders")
             ->assertStatus(401);
