@@ -1,14 +1,14 @@
 <?php
 
 use App\Http\Controllers\Admin\AnalyticsController;
-use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Admin\MenuItemController as AdminMenuItemController;
+use App\Http\Controllers\Admin\TableController;
+use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Client\GuestReservationController;
 use App\Http\Controllers\Client\MenuItemController as ClientMenuItemController;
-use App\Http\Controllers\GuestReservationController;
-use App\Http\Controllers\MenuItemController;
-use App\Http\Controllers\PreOrderController;
-use App\Http\Controllers\ReservationController;
+use App\Http\Controllers\Client\PreOrderController;
+use App\Http\Controllers\Client\ReservationController;
 use App\Http\Controllers\StripeWebhookController;
-use App\Http\Controllers\TableController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function () {
@@ -28,7 +28,7 @@ Route::post('guest/reservations', [GuestReservationController::class, 'store']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('tables', TableController::class);
-    Route::apiResource('menu-items', MenuItemController::class)->except(['index']);
+    Route::apiResource('menu-items', AdminMenuItemController::class)->except(['index']);
 
     Route::prefix('reservations')->group(function () {
         Route::post('/', [ReservationController::class, 'store']);

@@ -1,8 +1,9 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Client;
 
 use App\DTOs\StorePreOrderDTO;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePreOrderRequest;
 use App\Http\Resources\ReservationItemResource;
 use App\Models\Reservation;

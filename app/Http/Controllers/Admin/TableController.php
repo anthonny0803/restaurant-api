@@ -1,9 +1,10 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Admin;
 
 use App\DTOs\StoreTableDTO;
 use App\DTOs\UpdateTableDTO;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateTableRequest;
 use App\Http\Requests\UpdateTableRequest;
 use App\Http\Resources\TableResource;
