@@ -7,58 +7,19 @@ use App\Models\Payment;
 use App\Models\Reservation;
 use App\Models\ReservationItem;
 use App\Models\Table;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use Tests\Traits\CreatesUsers;
 
 class AnalyticsTest extends TestCase
 {
     use RefreshDatabase;
+    use CreatesUsers;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->seed(\Database\Seeders\RoleSeeder::class);
-    }
-
-    private function adminUser(): User
-    {
-        $user = User::factory()->create();
-        $user->assignRole('admin');
-
-        return $user;
-    }
-
-    private function clientUser(): User
-    {
-        $user = User::factory()->create();
-        $user->assignRole('client');
-
-        return $user;
-    }
-
-    private function createTable(array $overrides = []): Table
-    {
-        return Table::create(array_merge([
-            'name' => 'Mesa ' . uniqid(),
-            'min_capacity' => 2,
-            'max_capacity' => 4,
-            'location' => 'interior',
-            'is_active' => true,
-        ], $overrides));
-    }
-
-    private function createReservation(array $overrides = []): Reservation
-    {
-        return Reservation::create(array_merge([
-            'user_id' => User::factory()->create()->id,
-            'table_id' => $this->createTable()->id,
-            'seats_requested' => 2,
-            'date' => '2026-03-15',
-            'start_time' => '20:00',
-            'end_time' => '22:00',
-            'status' => Reservation::STATUS_CONFIRMED,
-        ], $overrides));
     }
 
     // --- Authorization ---
@@ -105,22 +66,19 @@ class AnalyticsTest extends TestCase
 
     public function test_occupancy_returns_correct_structure_and_values(): void
     {
-        $table = $this->createTable(['name' => 'Mesa 1', 'max_capacity' => 4]);
+        $table = Table::factory()->create(['name' => 'Mesa 1', 'max_capacity' => 4]);
 
-        $this->createReservation([
+        Reservation::factory()->confirmed()->create([
             'table_id' => $table->id,
             'seats_requested' => 2,
-            'status' => Reservation::STATUS_CONFIRMED,
         ]);
-        $this->createReservation([
+        Reservation::factory()->create([
             'table_id' => $table->id,
             'seats_requested' => 4,
             'date' => '2026-03-16',
             'status' => Reservation::STATUS_COMPLETED,
         ]);
-        $this->createReservation([
-            'status' => Reservation::STATUS_CANCELLED,
-        ]);
+        Reservation::factory()->cancelled()->create();
 
         $response = $this->actingAs($this->adminUser())
             ->getJson('/api/admin/analytics/occupancy');
@@ -164,27 +122,22 @@ class AnalyticsTest extends TestCase
 
     public function test_revenue_returns_correct_calculations(): void
     {
-        $reservation1 = $this->createReservation(['status' => Reservation::STATUS_CONFIRMED]);
-        $reservation2 = $this->createReservation([
+        $reservation1 = Reservation::factory()->confirmed()->create();
+        $reservation2 = Reservation::factory()->cancelled()->create([
             'date' => '2026-03-16',
-            'status' => Reservation::STATUS_CANCELLED,
         ]);
 
-        Payment::create([
+        Payment::factory()->succeeded()->create([
             'reservation_id' => $reservation1->id,
             'amount' => 20.00,
-            'status' => Payment::STATUS_SUCCEEDED,
             'refund_amount' => 0,
-            'payment_gateway_id' => 'pi_' . uniqid(),
-            'paid_at' => now(),
         ]);
 
-        Payment::create([
+        Payment::factory()->create([
             'reservation_id' => $reservation2->id,
             'amount' => 30.00,
             'status' => Payment::STATUS_PARTIALLY_REFUNDED,
             'refund_amount' => 15.00,
-            'payment_gateway_id' => 'pi_' . uniqid(),
             'paid_at' => now(),
         ]);
 
@@ -222,7 +175,7 @@ class AnalyticsTest extends TestCase
 
     public function test_top_menu_items_returns_correct_ranking(): void
     {
-        $reservation = $this->createReservation(['status' => Reservation::STATUS_CONFIRMED]);
+        $reservation = Reservation::factory()->confirmed()->create();
 
         $paella = MenuItem::factory()->create([
             'name' => 'Paella',
@@ -288,15 +241,13 @@ class AnalyticsTest extends TestCase
 
     public function test_date_filter_only_includes_reservations_in_range(): void
     {
-        $this->createReservation([
+        Reservation::factory()->confirmed()->create([
             'date' => '2026-03-10',
             'seats_requested' => 2,
-            'status' => Reservation::STATUS_CONFIRMED,
         ]);
-        $this->createReservation([
+        Reservation::factory()->confirmed()->create([
             'date' => '2026-03-20',
             'seats_requested' => 4,
-            'status' => Reservation::STATUS_CONFIRMED,
         ]);
 
         $response = $this->actingAs($this->adminUser())
@@ -312,30 +263,18 @@ class AnalyticsTest extends TestCase
 
     public function test_date_filter_works_on_revenue_endpoint(): void
     {
-        $inRange = $this->createReservation([
-            'date' => '2026-03-15',
-            'status' => Reservation::STATUS_CONFIRMED,
-        ]);
-        $outOfRange = $this->createReservation([
-            'date' => '2026-03-01',
-            'status' => Reservation::STATUS_CONFIRMED,
-        ]);
+        $inRange = Reservation::factory()->confirmed()->create(['date' => '2026-03-15']);
+        $outOfRange = Reservation::factory()->confirmed()->create(['date' => '2026-03-01']);
 
-        Payment::create([
+        Payment::factory()->succeeded()->create([
             'reservation_id' => $inRange->id,
             'amount' => 20.00,
-            'status' => Payment::STATUS_SUCCEEDED,
             'refund_amount' => 0,
-            'payment_gateway_id' => 'pi_' . uniqid(),
-            'paid_at' => now(),
         ]);
-        Payment::create([
+        Payment::factory()->succeeded()->create([
             'reservation_id' => $outOfRange->id,
             'amount' => 50.00,
-            'status' => Payment::STATUS_SUCCEEDED,
             'refund_amount' => 0,
-            'payment_gateway_id' => 'pi_' . uniqid(),
-            'paid_at' => now(),
         ]);
 
         $response = $this->actingAs($this->adminUser())

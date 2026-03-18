@@ -3,34 +3,19 @@
 namespace Tests\Feature;
 
 use App\Models\MenuItem;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use Tests\Traits\CreatesUsers;
 
 class MenuItemTest extends TestCase
 {
     use RefreshDatabase;
+    use CreatesUsers;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->seed(\Database\Seeders\RoleSeeder::class);
-    }
-
-    private function adminUser(): User
-    {
-        $user = User::factory()->create();
-        $user->assignRole('admin');
-
-        return $user;
-    }
-
-    private function clientUser(): User
-    {
-        $user = User::factory()->create();
-        $user->assignRole('client');
-
-        return $user;
     }
 
     // --- List ---

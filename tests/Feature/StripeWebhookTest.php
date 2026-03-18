@@ -4,8 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Payment;
 use App\Models\Reservation;
-use App\Models\Table;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Stripe\Event;
 use Stripe\Webhook;
@@ -25,41 +23,11 @@ class StripeWebhookTest extends TestCase
 
     private function createReservationWithPayment(string $status = Reservation::STATUS_PENDING): array
     {
-        $user = User::factory()->create();
-        $user->assignRole('client');
+        $reservation = Reservation::factory()
+            ->withCancellationPolicy()
+            ->create(['status' => $status]);
 
-        $table = Table::create([
-            'name' => 'Mesa ' . uniqid(),
-            'min_capacity' => 2,
-            'max_capacity' => 4,
-            'location' => 'interior',
-            'is_active' => true,
-        ]);
-
-        $reservation = Reservation::create([
-            'user_id' => $user->id,
-            'table_id' => $table->id,
-            'seats_requested' => 2,
-            'date' => now()->addDays(3)->format('Y-m-d'),
-            'start_time' => '20:00:00',
-            'end_time' => '22:00:00',
-            'status' => $status,
-            'expires_at' => now()->addMinutes(15),
-        ]);
-
-        $reservation->cancellationPolicySnapshot()->create([
-            'cancellation_deadline_hours' => 24,
-            'refund_percentage' => 50,
-            'admin_fee_percentage' => 10,
-            'policy_accepted_at' => now(),
-        ]);
-
-        $payment = Payment::create([
-            'reservation_id' => $reservation->id,
-            'amount' => 10.00,
-            'status' => Payment::STATUS_PENDING,
-            'payment_gateway_id' => 'pi_test_' . uniqid(),
-        ]);
+        $payment = Payment::factory()->create(['reservation_id' => $reservation->id]);
 
         return [$reservation, $payment];
     }
