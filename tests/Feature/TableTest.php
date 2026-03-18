@@ -50,7 +50,7 @@ class TableTest extends TestCase
         Table::create($this->tableData());
 
         $response = $this->actingAs($this->adminUser())
-            ->getJson('/api/tables');
+            ->getJson('/api/admin/tables');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -63,7 +63,7 @@ class TableTest extends TestCase
     public function test_admin_can_create_a_table(): void
     {
         $response = $this->actingAs($this->adminUser())
-            ->postJson('/api/tables', $this->tableData());
+            ->postJson('/api/admin/tables', $this->tableData());
 
         $response->assertStatus(201)
             ->assertJsonStructure([
@@ -78,7 +78,7 @@ class TableTest extends TestCase
         $table = Table::create($this->tableData());
 
         $response = $this->actingAs($this->adminUser())
-            ->getJson("/api/tables/{$table->id}");
+            ->getJson("/api/admin/tables/{$table->id}");
 
         $response->assertStatus(200)
             ->assertJsonPath('data.id', $table->id);
@@ -89,7 +89,7 @@ class TableTest extends TestCase
         $table = Table::create($this->tableData());
 
         $response = $this->actingAs($this->adminUser())
-            ->putJson("/api/tables/{$table->id}", ['name' => 'Mesa Actualizada']);
+            ->putJson("/api/admin/tables/{$table->id}", ['name' => 'Mesa Actualizada']);
 
         $response->assertStatus(200)
             ->assertJsonPath('data.name', 'Mesa Actualizada');
@@ -102,7 +102,7 @@ class TableTest extends TestCase
         $table = Table::create($this->tableData());
 
         $response = $this->actingAs($this->adminUser())
-            ->deleteJson("/api/tables/{$table->id}");
+            ->deleteJson("/api/admin/tables/{$table->id}");
 
         $response->assertStatus(204);
 
@@ -112,14 +112,14 @@ class TableTest extends TestCase
     public function test_client_cannot_manage_tables(): void
     {
         $response = $this->actingAs($this->clientUser())
-            ->postJson('/api/tables', $this->tableData());
+            ->postJson('/api/admin/tables', $this->tableData());
 
         $response->assertStatus(403);
     }
 
     public function test_unauthenticated_user_cannot_access_tables(): void
     {
-        $response = $this->getJson('/api/tables');
+        $response = $this->getJson('/api/admin/tables');
 
         $response->assertStatus(401);
     }
@@ -129,7 +129,7 @@ class TableTest extends TestCase
         Table::create($this->tableData());
 
         $response = $this->actingAs($this->adminUser())
-            ->postJson('/api/tables', $this->tableData());
+            ->postJson('/api/admin/tables', $this->tableData());
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['name']);
@@ -138,7 +138,7 @@ class TableTest extends TestCase
     public function test_max_capacity_must_be_greater_than_or_equal_to_min_capacity(): void
     {
         $response = $this->actingAs($this->adminUser())
-            ->postJson('/api/tables', $this->tableData([
+            ->postJson('/api/admin/tables', $this->tableData([
                 'min_capacity' => 6,
                 'max_capacity' => 2,
             ]));
@@ -150,7 +150,7 @@ class TableTest extends TestCase
     public function test_show_returns_404_for_nonexistent_table(): void
     {
         $response = $this->actingAs($this->adminUser())
-            ->getJson('/api/tables/999');
+            ->getJson('/api/admin/tables/999');
 
         $response->assertStatus(404);
     }

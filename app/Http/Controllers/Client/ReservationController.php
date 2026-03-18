@@ -1,8 +1,9 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Client;
 
 use App\DTOs\HoldReservationDTO;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\HoldReservationRequest;
 use App\Http\Resources\ReservationResource;
 use App\Models\Reservation;
@@ -38,13 +39,9 @@ class ReservationController extends Controller
     {
         $this->authorize('viewAny', Reservation::class);
 
-        $user = $request->user();
-
-        $reservations = $user->hasRole('admin')
-            ? $this->service->listAll()
-            : $this->service->listForUser($user->id);
-
-        return ReservationResource::collection($reservations)->response();
+        return ReservationResource::collection(
+            $this->service->listForUser($request->user()->id)
+        )->response();
     }
 
     public function show(Reservation $reservation): JsonResponse

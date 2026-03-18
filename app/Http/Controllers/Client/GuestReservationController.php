@@ -1,8 +1,9 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Client;
 
 use App\DTOs\GuestHoldReservationDTO;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\GuestHoldReservationRequest;
 use App\Http\Resources\ReservationResource;
 use App\Services\GuestReservationService;

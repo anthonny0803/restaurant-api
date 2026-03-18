@@ -40,7 +40,7 @@ class MenuItemTest extends TestCase
         MenuItem::factory()->count(3)->create();
 
         $response = $this->actingAs($this->adminUser())
-            ->getJson('/api/menu-items');
+            ->getJson('/api/admin/menu-items');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -58,7 +58,7 @@ class MenuItemTest extends TestCase
         MenuItem::factory()->create(['category' => 'postres']);
 
         $response = $this->actingAs($this->adminUser())
-            ->getJson('/api/menu-items?category=entrantes');
+            ->getJson('/api/admin/menu-items?category=entrantes');
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data');
@@ -67,7 +67,7 @@ class MenuItemTest extends TestCase
     public function test_invalid_category_filter_returns_validation_error(): void
     {
         $response = $this->actingAs($this->adminUser())
-            ->getJson('/api/menu-items?category=invalida');
+            ->getJson('/api/admin/menu-items?category=invalida');
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['category']);
@@ -78,7 +78,7 @@ class MenuItemTest extends TestCase
     public function test_admin_can_create_a_menu_item(): void
     {
         $response = $this->actingAs($this->adminUser())
-            ->postJson('/api/menu-items', [
+            ->postJson('/api/admin/menu-items', [
                 'name' => 'Tortilla de patatas',
                 'description' => 'Tortilla casera con cebolla',
                 'price' => 8.50,
@@ -99,7 +99,7 @@ class MenuItemTest extends TestCase
         MenuItem::factory()->create(['name' => 'Paella']);
 
         $response = $this->actingAs($this->adminUser())
-            ->postJson('/api/menu-items', [
+            ->postJson('/api/admin/menu-items', [
                 'name' => 'Paella',
                 'price' => 15.00,
                 'category' => 'principales',
@@ -112,7 +112,7 @@ class MenuItemTest extends TestCase
     public function test_name_and_price_and_category_are_required(): void
     {
         $response = $this->actingAs($this->adminUser())
-            ->postJson('/api/menu-items', []);
+            ->postJson('/api/admin/menu-items', []);
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['name', 'price', 'category']);
@@ -121,7 +121,7 @@ class MenuItemTest extends TestCase
     public function test_invalid_category_is_rejected(): void
     {
         $response = $this->actingAs($this->adminUser())
-            ->postJson('/api/menu-items', [
+            ->postJson('/api/admin/menu-items', [
                 'name' => 'Pizza',
                 'price' => 12.00,
                 'category' => 'pizzas',
@@ -134,7 +134,7 @@ class MenuItemTest extends TestCase
     public function test_price_must_be_positive(): void
     {
         $response = $this->actingAs($this->adminUser())
-            ->postJson('/api/menu-items', [
+            ->postJson('/api/admin/menu-items', [
                 'name' => 'Agua',
                 'price' => 0,
                 'category' => 'bebidas',
@@ -151,7 +151,7 @@ class MenuItemTest extends TestCase
         $menuItem = MenuItem::factory()->create();
 
         $response = $this->actingAs($this->adminUser())
-            ->getJson("/api/menu-items/{$menuItem->id}");
+            ->getJson("/api/admin/menu-items/{$menuItem->id}");
 
         $response->assertStatus(200)
             ->assertJsonPath('data.id', $menuItem->id);
@@ -160,7 +160,7 @@ class MenuItemTest extends TestCase
     public function test_show_returns_404_for_nonexistent_menu_item(): void
     {
         $response = $this->actingAs($this->adminUser())
-            ->getJson('/api/menu-items/999');
+            ->getJson('/api/admin/menu-items/999');
 
         $response->assertStatus(404);
     }
@@ -172,7 +172,7 @@ class MenuItemTest extends TestCase
         $menuItem = MenuItem::factory()->create(['price' => '10.00']);
 
         $response = $this->actingAs($this->adminUser())
-            ->putJson("/api/menu-items/{$menuItem->id}", ['price' => 12.50]);
+            ->putJson("/api/admin/menu-items/{$menuItem->id}", ['price' => 12.50]);
 
         $response->assertStatus(200)
             ->assertJsonPath('data.price', '12.50');
@@ -185,7 +185,7 @@ class MenuItemTest extends TestCase
         $menuItem = MenuItem::factory()->create(['name' => 'Paella']);
 
         $response = $this->actingAs($this->adminUser())
-            ->putJson("/api/menu-items/{$menuItem->id}", ['name' => 'Paella']);
+            ->putJson("/api/admin/menu-items/{$menuItem->id}", ['name' => 'Paella']);
 
         $response->assertStatus(200);
     }
@@ -198,7 +198,7 @@ class MenuItemTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->adminUser())
-            ->putJson("/api/menu-items/{$menuItem->id}", [
+            ->putJson("/api/admin/menu-items/{$menuItem->id}", [
                 'description' => null,
                 'daily_stock' => null,
             ]);
@@ -221,7 +221,7 @@ class MenuItemTest extends TestCase
         $menuItem = MenuItem::factory()->create();
 
         $response = $this->actingAs($this->adminUser())
-            ->deleteJson("/api/menu-items/{$menuItem->id}");
+            ->deleteJson("/api/admin/menu-items/{$menuItem->id}");
 
         $response->assertStatus(204);
 
@@ -233,7 +233,7 @@ class MenuItemTest extends TestCase
     public function test_client_cannot_manage_menu_items(): void
     {
         $response = $this->actingAs($this->clientUser())
-            ->postJson('/api/menu-items', [
+            ->postJson('/api/admin/menu-items', [
                 'name' => 'Tortilla',
                 'price' => 8.00,
                 'category' => 'entrantes',
@@ -244,7 +244,7 @@ class MenuItemTest extends TestCase
 
     public function test_unauthenticated_user_cannot_manage_menu_items(): void
     {
-        $response = $this->postJson('/api/menu-items', [
+        $response = $this->postJson('/api/admin/menu-items', [
             'name' => 'Tortilla',
             'price' => 8.00,
             'category' => 'entrantes',

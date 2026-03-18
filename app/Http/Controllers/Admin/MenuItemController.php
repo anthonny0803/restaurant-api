@@ -1,28 +1,29 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Admin;
 
 use App\DTOs\StoreMenuItemDTO;
 use App\DTOs\UpdateMenuItemDTO;
 use App\Enums\MenuCategory;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\ListMenuItemRequest;
 use App\Http\Requests\StoreMenuItemRequest;
 use App\Http\Requests\UpdateMenuItemRequest;
 use App\Http\Resources\MenuItemResource;
 use App\Models\MenuItem;
 use App\Services\MenuItemService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class MenuItemController extends Controller
 {
     public function __construct(private MenuItemService $service) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(ListMenuItemRequest $request): JsonResponse
     {
         $this->authorize('viewAny', MenuItem::class);
 
-        $category = $request->query('category')
-            ? MenuCategory::tryFrom($request->query('category'))
+        $category = $request->validated('category')
+            ? MenuCategory::from($request->validated('category'))
             : null;
 
         return MenuItemResource::collection($this->service->paginate($category))->response();
