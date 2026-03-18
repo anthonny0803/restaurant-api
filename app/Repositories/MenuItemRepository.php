@@ -8,7 +8,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class MenuItemRepository
 {
-    public function paginate(?MenuCategory $category = null, int $perPage = 15): LengthAwarePaginator
+    public function paginate(?MenuCategory $category = null, int $perPage = 6): LengthAwarePaginator
     {
         $query = MenuItem::query();
 
@@ -19,7 +19,7 @@ class MenuItemRepository
         return $query->paginate($perPage);
     }
 
-    public function paginateForClient(?MenuCategory $category = null, int $perPage = 15): LengthAwarePaginator
+    public function paginateForClient(?MenuCategory $category = null, int $perPage = 6): LengthAwarePaginator
     {
         $query = MenuItem::available()->inStock();
 

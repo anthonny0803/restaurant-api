@@ -12,7 +12,7 @@ class TableService
 {
     public function __construct(private TableRepository $repository) {}
 
-    public function paginate(int $perPage = 15): LengthAwarePaginator
+    public function paginate(int $perPage = 6): LengthAwarePaginator
     {
         return $this->repository->paginate($perPage);
     }

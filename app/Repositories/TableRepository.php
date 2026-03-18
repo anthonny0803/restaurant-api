@@ -7,7 +7,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class TableRepository
 {
-    public function paginate(int $perPage = 15): LengthAwarePaginator
+    public function paginate(int $perPage = 6): LengthAwarePaginator
     {
         return Table::paginate($perPage);
     }

@@ -13,12 +13,12 @@ class MenuItemService
 {
     public function __construct(private MenuItemRepository $repository) {}
 
-    public function paginate(?MenuCategory $category = null, int $perPage = 15): LengthAwarePaginator
+    public function paginate(?MenuCategory $category = null, int $perPage = 6): LengthAwarePaginator
     {
         return $this->repository->paginate($category, $perPage);
     }
 
-    public function listForClient(?MenuCategory $category = null, int $perPage = 15): LengthAwarePaginator
+    public function listForClient(?MenuCategory $category = null, int $perPage = 6): LengthAwarePaginator
     {
         return $this->repository->paginateForClient($category, $perPage);
     }

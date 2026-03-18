@@ -175,12 +175,12 @@ class ReservationService
         return $this->reservationRepository->find($id);
     }
 
-    public function listForUser(int $userId, int $perPage = 15): LengthAwarePaginator
+    public function listForUser(int $userId, int $perPage = 6): LengthAwarePaginator
     {
         return $this->reservationRepository->paginateForUser($userId, $perPage);
     }
 
-    public function listAll(int $perPage = 15): LengthAwarePaginator
+    public function listAll(int $perPage = 6): LengthAwarePaginator
     {
         return $this->reservationRepository->paginate($perPage);
     }
