@@ -43,7 +43,7 @@ class TableController extends Controller
     {
         $this->authorize('update', $table);
 
-        $table = $this->service->update($table, new UpdateTableDTO(...$request->validated()));
+        $table = $this->service->update($table, UpdateTableDTO::fromValidated($request->validated()));
 
         return new TableResource($table);
     }
