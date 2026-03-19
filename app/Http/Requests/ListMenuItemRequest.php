@@ -19,4 +19,11 @@ class ListMenuItemRequest extends FormRequest
             'category' => ['sometimes', 'string', new Enum(MenuCategory::class)],
         ];
     }
+
+    public function category(): ?MenuCategory
+    {
+        $category = $this->validated('category');
+
+        return $category ? MenuCategory::from($category) : null;
+    }
 }

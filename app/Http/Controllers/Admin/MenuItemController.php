@@ -22,11 +22,7 @@ class MenuItemController extends Controller
     {
         $this->authorize('viewAny', MenuItem::class);
 
-        $category = $request->validated('category')
-            ? MenuCategory::from($request->validated('category'))
-            : null;
-
-        return MenuItemResource::collection($this->service->paginate($category))->response();
+        return MenuItemResource::collection($this->service->paginate($request->category()))->response();
     }
 
     public function store(StoreMenuItemRequest $request): JsonResponse
