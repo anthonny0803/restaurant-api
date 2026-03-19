@@ -74,6 +74,11 @@ class ReservationRepository
         return $reservation;
     }
 
+    public function markReminderSent(Reservation $reservation): void
+    {
+        $reservation->update(['reminder_sent_at' => now()]);
+    }
+
     public function findDueForReminder(int $reminderHours): Collection
     {
         $now = now();
