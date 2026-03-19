@@ -132,6 +132,32 @@ class TableTest extends TestCase
             ->assertJsonValidationErrors(['max_capacity']);
     }
 
+    public function test_partial_update_max_capacity_rejects_value_below_existing_min(): void
+    {
+        $table = Table::factory()->create(['min_capacity' => 4, 'max_capacity' => 6]);
+
+        $response = $this->actingAs($this->adminUser())
+            ->putJson("/api/admin/tables/{$table->id}", [
+                'max_capacity' => 2,
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['max_capacity']);
+    }
+
+    public function test_partial_update_min_capacity_rejects_value_above_existing_max(): void
+    {
+        $table = Table::factory()->create(['min_capacity' => 2, 'max_capacity' => 4]);
+
+        $response = $this->actingAs($this->adminUser())
+            ->putJson("/api/admin/tables/{$table->id}", [
+                'min_capacity' => 6,
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['min_capacity']);
+    }
+
     public function test_admin_can_clear_nullable_fields(): void
     {
         $table = Table::factory()->create(['description' => 'Mesa junto a la ventana']);
