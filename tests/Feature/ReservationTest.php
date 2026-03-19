@@ -392,4 +392,33 @@ class ReservationTest extends TestCase
 
         $response->assertStatus(403);
     }
+
+    // ── Transaction rollback ────────────────────────────────
+
+    public function test_hold_does_not_create_reservation_when_stripe_fails(): void
+    {
+        $this->paymentServiceMock
+            ->shouldReceive('createPaymentIntent')
+            ->once()
+            ->andThrow(new \Exception('Stripe connection error'));
+
+        $table = Table::factory()->create();
+
+        $response = $this->actingAs($this->clientUser())
+            ->postJson('/api/reservations', [
+                'table_id' => $table->id,
+                'seats_requested' => 2,
+                'date' => now()->addDays(3)->format('Y-m-d'),
+                'start_time' => '20:00',
+            ]);
+
+        $response->assertStatus(500);
+
+        $this->assertDatabaseMissing('reservations', [
+            'table_id' => $table->id,
+        ]);
+
+        $this->assertDatabaseCount('cancellation_policy_snapshots', 0);
+    }
+
 }
