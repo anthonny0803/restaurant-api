@@ -25,6 +25,8 @@ class ExpireReservationJob implements ShouldQueue
 
         $reservationRepository->updateStatus($reservation, Reservation::STATUS_EXPIRED);
 
+        $reservation = $reservation->fresh();
+
         $payment = $reservation->payment;
 
         if ($payment) {
