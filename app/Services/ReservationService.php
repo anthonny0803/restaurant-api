@@ -28,52 +28,53 @@ class ReservationService
 
     public function hold(HoldReservationDTO $dto): array
     {
-        if ($this->reservationRepository->hasPendingReservation($dto->user_id)) {
-            throw ValidationException::withMessages([
-                'reservation' => ['Ya tienes una reserva pendiente de pago.'],
-            ]);
-        }
-
-        $table = Table::findOrFail($dto->table_id);
-
-        if (! $table->is_active) {
-            throw ValidationException::withMessages([
-                'table_id' => ['Esta mesa no esta disponible.'],
-            ]);
-        }
-
-        if ($dto->seats_requested < $table->min_capacity || $dto->seats_requested > $table->max_capacity) {
-            throw ValidationException::withMessages([
-                'seats_requested' => ["Los comensales deben ser entre {$table->min_capacity} y {$table->max_capacity} para esta mesa."],
-            ]);
-        }
-
-        $reservationDate = Carbon::parse($dto->date);
-
-        if ($reservationDate->isPast() || $reservationDate->greaterThan(now()->addWeek())) {
-            throw ValidationException::withMessages([
-                'date' => ['Las reservas deben ser dentro de los proximos 7 dias.'],
-            ]);
-        }
-
-        $settings = $this->settingRepository->get();
-
-        $endTime = Carbon::parse($dto->start_time)
-            ->addMinutes($settings->default_reservation_duration_minutes)
-            ->format('H:i:s');
-
-        if ($this->reservationRepository->hasOverlappingReservation(
-            $dto->table_id, $dto->date, $dto->start_time, $endTime
-        )) {
-            throw ValidationException::withMessages([
-                'table_id' => ['Esta mesa no esta disponible para el horario seleccionado.'],
-            ]);
-        }
-
         $expiresAt = now()->addMinutes(self::HOLD_DURATION_MINUTES);
-        $depositAmount = (float) $settings->deposit_per_person * $dto->seats_requested;
 
-        $result = DB::transaction(function () use ($dto, $settings, $endTime, $expiresAt, $depositAmount) {
+        $result = DB::transaction(function () use ($dto, $expiresAt) {
+            if ($this->reservationRepository->hasPendingReservation($dto->user_id)) {
+                throw ValidationException::withMessages([
+                    'reservation' => ['Ya tienes una reserva pendiente de pago.'],
+                ]);
+            }
+
+            $table = Table::findOrFail($dto->table_id);
+
+            if (! $table->is_active) {
+                throw ValidationException::withMessages([
+                    'table_id' => ['Esta mesa no esta disponible.'],
+                ]);
+            }
+
+            if ($dto->seats_requested < $table->min_capacity || $dto->seats_requested > $table->max_capacity) {
+                throw ValidationException::withMessages([
+                    'seats_requested' => ["Los comensales deben ser entre {$table->min_capacity} y {$table->max_capacity} para esta mesa."],
+                ]);
+            }
+
+            $reservationDate = Carbon::parse($dto->date);
+
+            if ($reservationDate->isPast() || $reservationDate->greaterThan(now()->addWeek())) {
+                throw ValidationException::withMessages([
+                    'date' => ['Las reservas deben ser dentro de los proximos 7 dias.'],
+                ]);
+            }
+
+            $settings = $this->settingRepository->get();
+
+            $endTime = Carbon::parse($dto->start_time)
+                ->addMinutes($settings->default_reservation_duration_minutes)
+                ->format('H:i:s');
+
+            if ($this->reservationRepository->hasOverlappingReservation(
+                $dto->table_id, $dto->date, $dto->start_time, $endTime
+            )) {
+                throw ValidationException::withMessages([
+                    'table_id' => ['Esta mesa no esta disponible para el horario seleccionado.'],
+                ]);
+            }
+
+            $depositAmount = (float) $settings->deposit_per_person * $dto->seats_requested;
+
             $reservation = $this->reservationRepository->create([
                 'user_id' => $dto->user_id,
                 'table_id' => $dto->table_id,
@@ -145,21 +146,26 @@ class ReservationService
 
         $reservationDateTime = Carbon::parse($reservation->date->format('Y-m-d') . ' ' . $reservation->start_time);
 
-        $this->reservationRepository->updateStatus($reservation, Reservation::STATUS_CANCELLED);
+        $refundAmount = DB::transaction(function () use ($reservation, $reservationDateTime) {
+            $this->reservationRepository->updateStatus($reservation, Reservation::STATUS_CANCELLED);
 
-        $payment = $reservation->payment;
-        $refundAmount = null;
+            $payment = $reservation->payment;
 
-        if ($payment && $payment->status === Payment::STATUS_SUCCEEDED) {
-            $snapshot = $reservation->cancellationPolicySnapshot;
-            $hoursUntilReservation = now()->diffInHours($reservationDateTime, false);
+            if ($payment && $payment->status === Payment::STATUS_SUCCEEDED) {
+                $snapshot = $reservation->cancellationPolicySnapshot;
+                $hoursUntilReservation = now()->diffInHours($reservationDateTime, false);
 
-            $refundAmount = $hoursUntilReservation >= $snapshot->cancellation_deadline_hours
-                ? (float) $payment->amount
-                : (float) $payment->amount * $snapshot->refund_percentage / 100;
+                $refundAmount = $hoursUntilReservation >= $snapshot->cancellation_deadline_hours
+                    ? (float) $payment->amount
+                    : (float) $payment->amount * $snapshot->refund_percentage / 100;
 
-            $this->paymentService->refund($payment, $refundAmount);
-        }
+                $this->paymentService->refund($payment, $refundAmount);
+
+                return $refundAmount;
+            }
+
+            return null;
+        });
 
         $reservation = $reservation->fresh();
 

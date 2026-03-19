@@ -35,6 +35,7 @@ class ReservationRepository
             ->forTable($tableId)
             ->forDate($date)
             ->overlapping($startTime, $endTime)
+            ->lockForUpdate()
             ->exists();
     }
 
@@ -42,6 +43,7 @@ class ReservationRepository
     {
         return Reservation::pending()
             ->where('user_id', $userId)
+            ->lockForUpdate()
             ->exists();
     }
 
