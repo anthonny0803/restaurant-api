@@ -6,6 +6,7 @@ use App\DTOs\HoldReservationDTO;
 use App\Jobs\ExpireReservationJob;
 use App\Notifications\ReservationCancelledNotification;
 use App\Notifications\ReservationConfirmedNotification;
+use App\Notifications\ReservationExpiredRefundNotification;
 use App\Models\Payment;
 use App\Models\Reservation;
 use App\Models\Table;
@@ -51,9 +52,9 @@ class ReservationService
                 ]);
             }
 
-            $reservationDate = Carbon::parse($dto->date);
+            $reservationDateTime = Carbon::parse($dto->date . ' ' . $dto->start_time);
 
-            if ($reservationDate->isPast() || $reservationDate->greaterThan(now()->addWeek())) {
+            if ($reservationDateTime->isPast() || Carbon::parse($dto->date)->greaterThan(now()->addWeek())) {
                 throw ValidationException::withMessages([
                     'date' => ['Las reservas deben ser dentro de los proximos 7 dias.'],
                 ]);
@@ -121,6 +122,12 @@ class ReservationService
 
         if ($reservation->status === Reservation::STATUS_EXPIRED) {
             $this->paymentService->refund($payment, (float) $payment->amount);
+
+            if ($reservation->user) {
+                $reservation->user->notify(
+                    new ReservationExpiredRefundNotification($reservation, (float) $payment->amount)
+                );
+            }
 
             return $reservation;
         }
