@@ -6,15 +6,12 @@ use App\Models\Payment;
 use App\Repositories\PaymentRepository;
 use Stripe\PaymentIntent;
 use Stripe\Refund;
-use Stripe\Stripe;
 
 class PaymentService
 {
     public function __construct(
         private PaymentRepository $paymentRepository,
-    ) {
-        Stripe::setApiKey(config('services.stripe.secret'));
-    }
+    ) {}
 
     public function createPaymentIntent(int $reservationId, float $amount): array
     {
