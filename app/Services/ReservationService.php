@@ -9,9 +9,9 @@ use App\Notifications\ReservationConfirmedNotification;
 use App\Notifications\ReservationExpiredRefundNotification;
 use App\Models\Payment;
 use App\Models\Reservation;
-use App\Models\Table;
 use App\Repositories\ReservationRepository;
 use App\Repositories\RestaurantSettingRepository;
+use App\Repositories\TableRepository;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +24,7 @@ class ReservationService
     public function __construct(
         private ReservationRepository $reservationRepository,
         private RestaurantSettingRepository $settingRepository,
+        private TableRepository $tableRepository,
         private PaymentService $paymentService,
     ) {}
 
@@ -38,7 +39,7 @@ class ReservationService
                 ]);
             }
 
-            $table = Table::findOrFail($dto->table_id);
+            $table = $this->tableRepository->findOrFail($dto->table_id);
 
             if (! $table->is_active) {
                 throw ValidationException::withMessages([
