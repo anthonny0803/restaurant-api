@@ -20,7 +20,7 @@ class ClientMenuItemTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'data' => [['id', 'name', 'description', 'price', 'category', 'is_available', 'daily_stock', 'created_at']],
+                'data' => [['id', 'name', 'description', 'price', 'category', 'is_available', 'created_at']],
                 'links',
                 'meta',
             ])
@@ -57,7 +57,7 @@ class ClientMenuItemTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.daily_stock', null);
+            ->assertJsonMissing(['daily_stock']);
     }
 
     public function test_can_filter_by_category(): void

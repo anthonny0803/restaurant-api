@@ -37,8 +37,8 @@ class CompleteAccountTest extends TestCase
 
         $response = $this->actingAs($user)
             ->postJson('/api/auth/complete-account', [
-                'password' => 'newpassword123',
-                'password_confirmation' => 'newpassword123',
+                'password' => 'NewPassword1',
+                'password_confirmation' => 'NewPassword1',
             ]);
 
         $response->assertStatus(200)
@@ -46,7 +46,7 @@ class CompleteAccountTest extends TestCase
 
         $user->refresh();
         $this->assertNotNull($user->password);
-        $this->assertTrue(Hash::check('newpassword123', $user->password));
+        $this->assertTrue(Hash::check('NewPassword1', $user->password));
     }
 
     public function test_registered_user_cannot_complete_account(): void
@@ -56,8 +56,8 @@ class CompleteAccountTest extends TestCase
 
         $response = $this->actingAs($user)
             ->postJson('/api/auth/complete-account', [
-                'password' => 'newpassword123',
-                'password_confirmation' => 'newpassword123',
+                'password' => 'NewPassword1',
+                'password_confirmation' => 'NewPassword1',
             ]);
 
         $response->assertStatus(422)
@@ -78,8 +78,8 @@ class CompleteAccountTest extends TestCase
     public function test_unauthenticated_user_cannot_complete_account(): void
     {
         $response = $this->postJson('/api/auth/complete-account', [
-            'password' => 'newpassword123',
-            'password_confirmation' => 'newpassword123',
+            'password' => 'NewPassword1',
+            'password_confirmation' => 'NewPassword1',
         ]);
 
         $response->assertStatus(401);
