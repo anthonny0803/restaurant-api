@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Models\Reservation;
 use App\Repositories\ReservationRepository;
 use App\Repositories\RestaurantSettingRepository;
+use App\Repositories\TableRepository;
 use App\Services\PaymentService;
 use App\Services\ReservationService;
 use Illuminate\Validation\ValidationException;
@@ -19,6 +20,7 @@ class ReservationServiceTest extends TestCase
     private ReservationService $service;
     private ReservationRepository&MockInterface $reservationRepository;
     private RestaurantSettingRepository&MockInterface $settingRepository;
+    private TableRepository&MockInterface $tableRepository;
     private PaymentService&MockInterface $paymentService;
 
     protected function setUp(): void
@@ -27,11 +29,13 @@ class ReservationServiceTest extends TestCase
 
         $this->reservationRepository = Mockery::mock(ReservationRepository::class);
         $this->settingRepository = Mockery::mock(RestaurantSettingRepository::class);
+        $this->tableRepository = Mockery::mock(TableRepository::class);
         $this->paymentService = Mockery::mock(PaymentService::class);
 
         $this->service = new ReservationService(
             $this->reservationRepository,
             $this->settingRepository,
+            $this->tableRepository,
             $this->paymentService,
         );
     }

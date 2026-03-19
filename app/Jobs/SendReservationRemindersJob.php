@@ -28,7 +28,7 @@ class SendReservationRemindersJob implements ShouldQueue
             }
 
             $reservation->user->notify(new ReservationReminderNotification($reservation));
-            $reservation->update(['reminder_sent_at' => now()]);
+            $reservationRepository->markReminderSent($reservation);
         }
     }
 }

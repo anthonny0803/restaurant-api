@@ -63,7 +63,7 @@ class AuthService
             ]);
         }
 
-        $user->update(['password' => $dto->password]);
+        $this->userRepository->update($user, ['password' => $dto->password]);
 
         return $user;
     }

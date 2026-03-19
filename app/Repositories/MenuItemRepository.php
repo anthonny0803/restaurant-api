@@ -35,6 +35,11 @@ class MenuItemRepository
         return MenuItem::find($id);
     }
 
+    public function findOrFail(int $id): MenuItem
+    {
+        return MenuItem::findOrFail($id);
+    }
+
     public function create(array $data): MenuItem
     {
         return MenuItem::create($data);

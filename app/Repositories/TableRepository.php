@@ -17,6 +17,11 @@ class TableRepository
         return Table::find($id);
     }
 
+    public function findOrFail(int $id): Table
+    {
+        return Table::findOrFail($id);
+    }
+
     public function create(array $data): Table
     {
         return Table::create($data);

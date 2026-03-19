@@ -21,14 +21,14 @@ class PreOrderService
 
     public function list(Reservation $reservation): Collection
     {
-        return $reservation->reservationItems()->with('menuItem')->get();
+        return $this->reservationItemRepository->listForReservation($reservation);
     }
 
     public function store(Reservation $reservation, StorePreOrderDTO $dto): ReservationItem
     {
         $this->ensureReservationIsConfirmed($reservation);
 
-        $menuItem = MenuItem::findOrFail($dto->menu_item_id);
+        $menuItem = $this->menuItemRepository->findOrFail($dto->menu_item_id);
 
         $this->ensureMenuItemIsAvailable($menuItem);
         $this->ensureMenuItemHasStock($menuItem, $dto->quantity);
