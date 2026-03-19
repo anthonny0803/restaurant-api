@@ -146,21 +146,26 @@ class ReservationService
 
         $reservationDateTime = Carbon::parse($reservation->date->format('Y-m-d') . ' ' . $reservation->start_time);
 
-        $this->reservationRepository->updateStatus($reservation, Reservation::STATUS_CANCELLED);
+        $refundAmount = DB::transaction(function () use ($reservation, $reservationDateTime) {
+            $this->reservationRepository->updateStatus($reservation, Reservation::STATUS_CANCELLED);
 
-        $payment = $reservation->payment;
-        $refundAmount = null;
+            $payment = $reservation->payment;
 
-        if ($payment && $payment->status === Payment::STATUS_SUCCEEDED) {
-            $snapshot = $reservation->cancellationPolicySnapshot;
-            $hoursUntilReservation = now()->diffInHours($reservationDateTime, false);
+            if ($payment && $payment->status === Payment::STATUS_SUCCEEDED) {
+                $snapshot = $reservation->cancellationPolicySnapshot;
+                $hoursUntilReservation = now()->diffInHours($reservationDateTime, false);
 
-            $refundAmount = $hoursUntilReservation >= $snapshot->cancellation_deadline_hours
-                ? (float) $payment->amount
-                : (float) $payment->amount * $snapshot->refund_percentage / 100;
+                $refundAmount = $hoursUntilReservation >= $snapshot->cancellation_deadline_hours
+                    ? (float) $payment->amount
+                    : (float) $payment->amount * $snapshot->refund_percentage / 100;
 
-            $this->paymentService->refund($payment, $refundAmount);
-        }
+                $this->paymentService->refund($payment, $refundAmount);
+
+                return $refundAmount;
+            }
+
+            return null;
+        });
 
         $reservation = $reservation->fresh();
 

@@ -421,4 +421,28 @@ class ReservationTest extends TestCase
         $this->assertDatabaseCount('cancellation_policy_snapshots', 0);
     }
 
+    public function test_cancel_does_not_change_status_when_stripe_refund_fails(): void
+    {
+        $this->paymentServiceMock
+            ->shouldReceive('refund')
+            ->once()
+            ->andThrow(new \Exception('Stripe refund error'));
+
+        $client = $this->clientUser();
+        $reservation = Reservation::factory()->withCancellationPolicy()->create([
+            'user_id' => $client->id,
+        ]);
+
+        Payment::factory()->succeeded()->create(['reservation_id' => $reservation->id]);
+
+        $response = $this->actingAs($client)
+            ->postJson("/api/reservations/{$reservation->id}/cancel");
+
+        $response->assertStatus(500);
+
+        $this->assertDatabaseHas('reservations', [
+            'id' => $reservation->id,
+            'status' => Reservation::STATUS_CONFIRMED,
+        ]);
+    }
 }
