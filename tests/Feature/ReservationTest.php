@@ -393,6 +393,51 @@ class ReservationTest extends TestCase
         $response->assertStatus(403);
     }
 
+    // ── Today booking ─────────────────────────────────────
+
+    public function test_hold_allows_booking_for_today(): void
+    {
+        Queue::fake();
+
+        $this->paymentServiceMock
+            ->shouldReceive('createPaymentIntent')
+            ->once()
+            ->andReturn([
+                'payment' => new Payment([
+                    'amount' => 10.00,
+                    'status' => Payment::STATUS_PENDING,
+                    'payment_gateway_id' => 'pi_test_today',
+                ]),
+                'client_secret' => 'pi_test_today_secret',
+            ]);
+
+        $table = Table::factory()->create();
+
+        $response = $this->actingAs($this->clientUser())
+            ->postJson('/api/reservations', [
+                'table_id' => $table->id,
+                'seats_requested' => 2,
+                'date' => now()->format('Y-m-d'),
+                'start_time' => now()->addHours(2)->format('H:i'),
+            ]);
+
+        $response->assertStatus(201);
+    }
+
+    public function test_hold_rejects_past_time_today(): void
+    {
+        $this->paymentServiceMock->shouldNotReceive('createPaymentIntent');
+
+        $response = $this->actingAs($this->clientUser())
+            ->postJson('/api/reservations', $this->holdData([
+                'date' => now()->format('Y-m-d'),
+                'start_time' => now()->subHours(2)->format('H:i'),
+            ]));
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['date']);
+    }
+
     // ── Transaction rollback ────────────────────────────────
 
     public function test_hold_does_not_create_reservation_when_stripe_fails(): void
