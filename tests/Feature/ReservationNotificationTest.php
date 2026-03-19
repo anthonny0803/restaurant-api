@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\ReservationCancelledNotification;
 use App\Notifications\ReservationConfirmedNotification;
 use App\Notifications\ReservationExpiredNotification;
+use App\Notifications\ReservationExpiredRefundNotification;
 use App\Notifications\ReservationReminderNotification;
 use App\Services\PaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -130,6 +131,46 @@ class ReservationNotificationTest extends TestCase
             ->postJson("/api/reservations/{$reservation->id}/cancel");
 
         Notification::assertSentTo($client, ReservationCancelledNotification::class);
+    }
+
+    // ── Expired refund ─────────────────────────────────────────
+
+    public function test_expired_refund_notification_is_sent_on_late_payment(): void
+    {
+        Notification::fake();
+
+        $client = $this->clientUser();
+        $reservation = Reservation::factory()->expired()->withCancellationPolicy()->create([
+            'user_id' => $client->id,
+        ]);
+
+        $payment = Payment::factory()->create([
+            'reservation_id' => $reservation->id,
+            'payment_gateway_id' => 'pi_test_late',
+        ]);
+
+        $this->paymentServiceMock
+            ->shouldReceive('handleSucceededPayment')
+            ->with('pi_test_late')
+            ->once()
+            ->andReturn($payment->fresh());
+
+        $this->paymentServiceMock
+            ->shouldReceive('refund')
+            ->once();
+
+        $payload = $this->webhookPayload('pi_test_late');
+
+        $webhookMock = Mockery::mock('alias:' . Webhook::class);
+        $webhookMock->shouldReceive('constructEvent')
+            ->once()
+            ->andReturn(Event::constructFrom(json_decode($payload, true)));
+
+        $this->postJson('/api/stripe/webhook', [], [
+            'HTTP_STRIPE_SIGNATURE' => 't=123,v1=fake_signature',
+        ]);
+
+        Notification::assertSentTo($client, ReservationExpiredRefundNotification::class);
     }
 
     // ── Expiration ────────────────────────────────────────────
