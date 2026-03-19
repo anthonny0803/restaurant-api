@@ -58,4 +58,5 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 });
 
-Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle']);
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle'])
+    ->middleware('throttle:60,1');
