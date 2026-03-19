@@ -16,7 +16,7 @@ class MenuItemResource extends JsonResource
             'price' => $this->price,
             'category' => $this->category->value,
             'is_available' => $this->is_available,
-            'daily_stock' => $this->daily_stock,
+            'daily_stock' => $this->when($request->user()?->hasRole('admin'), $this->daily_stock),
             'created_at' => $this->created_at->toDateTimeString(),
         ];
     }
