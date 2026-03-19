@@ -50,13 +50,15 @@ class ReservationRepository
     public function paginateForUser(int $userId, int $perPage = 6): LengthAwarePaginator
     {
         return Reservation::where('user_id', $userId)
+            ->with(['table', 'payment'])
             ->latest()
             ->paginate($perPage);
     }
 
     public function paginate(int $perPage = 6): LengthAwarePaginator
     {
-        return Reservation::latest()
+        return Reservation::with(['table', 'payment'])
+            ->latest()
             ->paginate($perPage);
     }
 
