@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\Reservation;
 use App\Models\User;
 use App\Notifications\ReservationCancelledNotification;
+use App\Notifications\GuestReservationConfirmedNotification;
 use App\Notifications\ReservationConfirmedNotification;
 use App\Notifications\ReservationExpiredNotification;
 use App\Notifications\ReservationExpiredRefundNotification;
@@ -91,6 +92,89 @@ class ReservationNotificationTest extends TestCase
         ]);
 
         Notification::assertSentTo($client, ReservationConfirmedNotification::class);
+    }
+
+    public function test_guest_confirmed_notification_is_sent_on_payment_success(): void
+    {
+        Notification::fake();
+
+        $guestUser = User::create([
+            'name' => 'Guest User',
+            'email' => 'guest@example.com',
+        ]);
+        $guestUser->assignRole('client');
+
+        $reservation = Reservation::factory()->pending()->withCancellationPolicy()->create([
+            'user_id' => $guestUser->id,
+        ]);
+
+        $payment = Payment::factory()->create([
+            'reservation_id' => $reservation->id,
+            'payment_gateway_id' => 'pi_test_guest_confirm',
+        ]);
+
+        $this->paymentServiceMock
+            ->shouldReceive('handleSucceededPayment')
+            ->with('pi_test_guest_confirm')
+            ->once()
+            ->andReturn($payment->fresh());
+
+        $payload = $this->webhookPayload('pi_test_guest_confirm');
+
+        $webhookMock = Mockery::mock('alias:' . Webhook::class);
+        $webhookMock->shouldReceive('constructEvent')
+            ->once()
+            ->andReturn(Event::constructFrom(json_decode($payload, true)));
+
+        $this->postJson('/api/stripe/webhook', [], [
+            'HTTP_STRIPE_SIGNATURE' => 't=123,v1=fake_signature',
+        ]);
+
+        Notification::assertSentTo($guestUser, GuestReservationConfirmedNotification::class);
+        Notification::assertNotSentTo($guestUser, ReservationConfirmedNotification::class);
+    }
+
+    public function test_guest_receives_api_token_after_payment_confirmation(): void
+    {
+        Notification::fake();
+
+        $guestUser = User::create([
+            'name' => 'Guest User',
+            'email' => 'guest-token@example.com',
+        ]);
+        $guestUser->assignRole('client');
+
+        $reservation = Reservation::factory()->pending()->withCancellationPolicy()->create([
+            'user_id' => $guestUser->id,
+        ]);
+
+        $payment = Payment::factory()->create([
+            'reservation_id' => $reservation->id,
+            'payment_gateway_id' => 'pi_test_guest_token',
+        ]);
+
+        $this->paymentServiceMock
+            ->shouldReceive('handleSucceededPayment')
+            ->with('pi_test_guest_token')
+            ->once()
+            ->andReturn($payment->fresh());
+
+        $payload = $this->webhookPayload('pi_test_guest_token');
+
+        $webhookMock = Mockery::mock('alias:' . Webhook::class);
+        $webhookMock->shouldReceive('constructEvent')
+            ->once()
+            ->andReturn(Event::constructFrom(json_decode($payload, true)));
+
+        $this->postJson('/api/stripe/webhook', [], [
+            'HTTP_STRIPE_SIGNATURE' => 't=123,v1=fake_signature',
+        ]);
+
+        $this->assertDatabaseHas('personal_access_tokens', [
+            'tokenable_id' => $guestUser->id,
+            'tokenable_type' => User::class,
+            'name' => 'guest-token',
+        ]);
     }
 
     // ── Cancellation ──────────────────────────────────────────

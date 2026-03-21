@@ -5,6 +5,7 @@ namespace App\Services;
 use App\DTOs\HoldReservationDTO;
 use App\Jobs\ExpireReservationJob;
 use App\Notifications\ReservationCancelledNotification;
+use App\Notifications\GuestReservationConfirmedNotification;
 use App\Notifications\ReservationConfirmedNotification;
 use App\Notifications\ReservationExpiredRefundNotification;
 use App\Models\Payment;
@@ -124,11 +125,9 @@ class ReservationService
         if ($reservation->status === Reservation::STATUS_EXPIRED) {
             $this->paymentService->refund($payment, (float) $payment->amount);
 
-            if ($reservation->user) {
-                $reservation->user->notify(
-                    new ReservationExpiredRefundNotification($reservation, (float) $payment->amount)
-                );
-            }
+            $reservation->user?->notify(
+                new ReservationExpiredRefundNotification($reservation, (float) $payment->amount)
+            );
 
             return $reservation;
         }
@@ -137,9 +136,18 @@ class ReservationService
 
         $reservation = $reservation->fresh();
 
-        if ($reservation->user) {
-            $reservation->user->notify(new ReservationConfirmedNotification($reservation));
+        if (! $reservation->user) {
+            return $reservation;
         }
+
+        if ($reservation->user->isGuest()) {
+            $token = $reservation->user->createToken('guest-token')->plainTextToken;
+            $reservation->user->notify(new GuestReservationConfirmedNotification($reservation, $token));
+
+            return $reservation;
+        }
+
+        $reservation->user->notify(new ReservationConfirmedNotification($reservation));
 
         return $reservation;
     }
