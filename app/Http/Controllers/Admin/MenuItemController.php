@@ -20,15 +20,11 @@ class MenuItemController extends Controller
 
     public function index(ListMenuItemRequest $request): JsonResponse
     {
-        $this->authorize('viewAny', MenuItem::class);
-
         return MenuItemResource::collection($this->service->paginate($request->category()))->response();
     }
 
     public function store(StoreMenuItemRequest $request): JsonResponse
     {
-        $this->authorize('create', MenuItem::class);
-
         $menuItem = $this->service->create(new StoreMenuItemDTO(
             name: $request->validated('name'),
             price: $request->validated('price'),
@@ -43,15 +39,11 @@ class MenuItemController extends Controller
 
     public function show(MenuItem $menuItem): MenuItemResource
     {
-        $this->authorize('view', $menuItem);
-
         return new MenuItemResource($menuItem);
     }
 
     public function update(UpdateMenuItemRequest $request, MenuItem $menuItem): MenuItemResource
     {
-        $this->authorize('update', $menuItem);
-
         $menuItem = $this->service->update($menuItem, UpdateMenuItemDTO::fromValidated($request->validated()));
 
         return new MenuItemResource($menuItem);
@@ -59,8 +51,6 @@ class MenuItemController extends Controller
 
     public function destroy(MenuItem $menuItem): JsonResponse
     {
-        $this->authorize('delete', $menuItem);
-
         $this->service->delete($menuItem);
 
         return response()->json(null, 204);
