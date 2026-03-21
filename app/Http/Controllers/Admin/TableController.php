@@ -18,15 +18,11 @@ class TableController extends Controller
 
     public function index(): JsonResponse
     {
-        $this->authorize('viewAny', Table::class);
-
         return TableResource::collection($this->service->paginate())->response();
     }
 
     public function store(CreateTableRequest $request): JsonResponse
     {
-        $this->authorize('create', Table::class);
-
         $table = $this->service->create(new StoreTableDTO(...$request->validated()));
 
         return (new TableResource($table))->response()->setStatusCode(201);
@@ -34,15 +30,11 @@ class TableController extends Controller
 
     public function show(Table $table): TableResource
     {
-        $this->authorize('view', $table);
-
         return new TableResource($table);
     }
 
     public function update(UpdateTableRequest $request, Table $table): TableResource
     {
-        $this->authorize('update', $table);
-
         $table = $this->service->update($table, UpdateTableDTO::fromValidated($request->validated()));
 
         return new TableResource($table);
@@ -50,8 +42,6 @@ class TableController extends Controller
 
     public function destroy(Table $table): JsonResponse
     {
-        $this->authorize('delete', $table);
-
         $this->service->delete($table);
 
         return response()->json(null, 204);

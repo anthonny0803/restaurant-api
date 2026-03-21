@@ -14,15 +14,11 @@ class ReservationController extends Controller
 
     public function index(): JsonResponse
     {
-        $this->authorize('viewAny', Reservation::class);
-
         return ReservationResource::collection($this->service->listAll())->response();
     }
 
     public function show(Reservation $reservation): JsonResponse
     {
-        $this->authorize('view', $reservation);
-
         return (new ReservationResource($reservation->load('table', 'payment')))->response();
     }
 }
