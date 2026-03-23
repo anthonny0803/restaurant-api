@@ -366,6 +366,27 @@ class PreOrderTest extends TestCase
         $response->assertStatus(403);
     }
 
+    public function test_destroy_rejects_item_from_another_reservation(): void
+    {
+        $client = $this->clientUser();
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
+        $otherReservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
+        $menuItem = MenuItem::factory()->create();
+
+        $item = ReservationItem::factory()->create([
+            'reservation_id' => $otherReservation->id,
+            'menu_item_id' => $menuItem->id,
+            'unit_price' => $menuItem->price,
+        ]);
+
+        $response = $this->actingAs($client)
+            ->deleteJson("/api/reservations/{$reservation->id}/pre-orders/{$item->id}");
+
+        $response->assertStatus(404);
+
+        $this->assertDatabaseHas('reservation_items', ['id' => $item->id]);
+    }
+
     public function test_unauthenticated_user_cannot_access_pre_orders(): void
     {
         $reservation = Reservation::factory()->confirmed()->create();
