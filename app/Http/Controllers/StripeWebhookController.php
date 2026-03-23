@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\PaymentNotFoundException;
 use App\Services\ReservationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\Webhook;
 
@@ -25,8 +27,12 @@ class StripeWebhookController extends Controller
         }
 
         if ($event->type === 'payment_intent.succeeded') {
-            $gatewayId = $event->data->object->id;
-            $this->reservationService->confirmPayment($gatewayId);
+            try {
+                $gatewayId = $event->data->object->id;
+                $this->reservationService->confirmPayment($gatewayId);
+            } catch (PaymentNotFoundException $e) {
+                Log::warning("Stripe webhook: {$e->getMessage()}");
+            }
         }
 
         return response()->json(['received' => true]);
