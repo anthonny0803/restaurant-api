@@ -175,4 +175,16 @@ class GuestReservationTest extends TestCase
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['reservation']);
     }
+
+    public function test_guest_hold_rejects_start_time_not_aligned_to_time_slot_interval(): void
+    {
+        $this->paymentServiceMock->shouldNotReceive('createPaymentIntent');
+
+        $response = $this->postJson('/api/guest/reservations', $this->guestHoldData([
+            'start_time' => '20:15',
+        ]));
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['start_time']);
+    }
 }

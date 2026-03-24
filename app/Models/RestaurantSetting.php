@@ -13,6 +13,7 @@ class RestaurantSetting extends Model
         'admin_fee_percentage',
         'default_reservation_duration_minutes',
         'reminder_hours_before',
+        'time_slot_interval_minutes',
     ];
 
     protected function casts(): array

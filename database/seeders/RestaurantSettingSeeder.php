@@ -16,6 +16,7 @@ class RestaurantSettingSeeder extends Seeder
             'admin_fee_percentage' => 10,
             'default_reservation_duration_minutes' => 120,
             'reminder_hours_before' => 24,
+            'time_slot_interval_minutes' => 30,
         ]);
     }
 }
