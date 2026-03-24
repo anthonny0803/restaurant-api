@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\ExpireReservationJob;
 use App\Models\Payment;
 use App\Models\Reservation;
+use App\Models\RestaurantSetting;
 use App\Models\Table;
 use App\Services\PaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -393,6 +394,57 @@ class ReservationTest extends TestCase
         $response->assertStatus(403);
     }
 
+    // ── Time slot interval ─────────────────────────────────
+
+    public function test_hold_rejects_start_time_not_aligned_to_time_slot_interval(): void
+    {
+        $this->paymentServiceMock->shouldNotReceive('createPaymentIntent');
+
+        $table = Table::factory()->create();
+
+        $response = $this->actingAs($this->clientUser())
+            ->postJson('/api/reservations', [
+                'table_id' => $table->id,
+                'seats_requested' => 2,
+                'date' => now()->addDays(3)->format('Y-m-d'),
+                'start_time' => '20:15',
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['start_time']);
+    }
+
+    public function test_hold_accepts_start_time_aligned_to_time_slot_interval(): void
+    {
+        Queue::fake();
+
+        $this->paymentServiceMock
+            ->shouldReceive('createPaymentIntent')
+            ->once()
+            ->andReturn([
+                'payment' => new Payment([
+                    'amount' => 10.00,
+                    'status' => Payment::STATUS_PENDING,
+                    'payment_gateway_id' => 'pi_test_slot',
+                ]),
+                'client_secret' => 'pi_test_slot_secret',
+            ]);
+
+        RestaurantSetting::first()->update(['time_slot_interval_minutes' => 15]);
+
+        $table = Table::factory()->create();
+
+        $response = $this->actingAs($this->clientUser())
+            ->postJson('/api/reservations', [
+                'table_id' => $table->id,
+                'seats_requested' => 2,
+                'date' => now()->addDays(3)->format('Y-m-d'),
+                'start_time' => '20:15',
+            ]);
+
+        $response->assertStatus(201);
+    }
+
     // ── Today booking ─────────────────────────────────────
 
     public function test_hold_allows_booking_for_today(): void
@@ -418,7 +470,7 @@ class ReservationTest extends TestCase
                 'table_id' => $table->id,
                 'seats_requested' => 2,
                 'date' => now()->format('Y-m-d'),
-                'start_time' => now()->addHours(2)->format('H:i'),
+                'start_time' => now()->addHours(2)->startOfHour()->format('H:i'),
             ]);
 
         $response->assertStatus(201);

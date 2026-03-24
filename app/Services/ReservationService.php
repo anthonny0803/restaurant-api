@@ -64,6 +64,13 @@ class ReservationService
 
             $settings = $this->settingRepository->get();
 
+            $startTimeMinutes = Carbon::parse($dto->start_time)->minute;
+            if ($startTimeMinutes % $settings->time_slot_interval_minutes !== 0) {
+                throw ValidationException::withMessages([
+                    'start_time' => ["La hora de inicio debe estar alineada a intervalos de {$settings->time_slot_interval_minutes} minutos."],
+                ]);
+            }
+
             $endTime = Carbon::parse($dto->start_time)
                 ->addMinutes($settings->default_reservation_duration_minutes)
                 ->format('H:i:s');

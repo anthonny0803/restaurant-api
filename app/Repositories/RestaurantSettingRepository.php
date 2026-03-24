@@ -15,6 +15,6 @@ class RestaurantSettingRepository
     {
         $settings->update($data);
 
-        return $settings;
+        return $settings->fresh();
     }
 }

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\MenuItemController as AdminMenuItemController;
 use App\Http\Controllers\Admin\ReservationController as AdminReservationController;
+use App\Http\Controllers\Admin\RestaurantSettingController;
 use App\Http\Controllers\Admin\TableController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Client\GuestReservationController;
@@ -35,6 +36,9 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
         Route::get('/', [AdminReservationController::class, 'index']);
         Route::get('/{reservation}', [AdminReservationController::class, 'show']);
     });
+
+    Route::get('settings', [RestaurantSettingController::class, 'show']);
+    Route::patch('settings', [RestaurantSettingController::class, 'update']);
 
     Route::prefix('analytics')->group(function () {
         Route::get('/occupancy', [AnalyticsController::class, 'occupancy']);
