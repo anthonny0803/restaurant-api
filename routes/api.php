@@ -26,6 +26,7 @@ Route::prefix('auth')->group(function () {
 });
 
 Route::get('menu-items', [ClientMenuItemController::class, 'index']);
+Route::get('reservations/available-tables', [ClientReservationController::class, 'availableTables']);
 Route::post('guest/reservations', [GuestReservationController::class, 'store']);
 
 Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {

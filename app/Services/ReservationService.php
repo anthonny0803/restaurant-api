@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\DTOs\AvailableTablesDTO;
 use App\DTOs\HoldReservationDTO;
 use App\Jobs\ExpireReservationJob;
 use App\Notifications\ReservationCancelledNotification;
@@ -15,6 +16,7 @@ use App\Repositories\RestaurantSettingRepository;
 use App\Repositories\TableRepository;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -212,5 +214,31 @@ class ReservationService
     public function listAll(int $perPage = 6): LengthAwarePaginator
     {
         return $this->reservationRepository->paginate($perPage);
+    }
+
+    public function suggestAvailableTables(AvailableTablesDTO $dto): Collection
+    {
+        $reservationDateTime = Carbon::parse($dto->date . ' ' . $dto->start_time);
+
+        if ($reservationDateTime->isPast() || Carbon::parse($dto->date)->greaterThan(now()->addWeek())) {
+            throw ValidationException::withMessages([
+                'date' => ['Las reservas deben ser dentro de los proximos 7 dias.'],
+            ]);
+        }
+
+        $settings = $this->settingRepository->get();
+
+        $startTimeMinutes = Carbon::parse($dto->start_time)->minute;
+        if ($startTimeMinutes % $settings->time_slot_interval_minutes !== 0) {
+            throw ValidationException::withMessages([
+                'start_time' => ["La hora de inicio debe estar alineada a intervalos de {$settings->time_slot_interval_minutes} minutos."],
+            ]);
+        }
+
+        $endTime = Carbon::parse($dto->start_time)
+            ->addMinutes($settings->default_reservation_duration_minutes)
+            ->format('H:i:s');
+
+        return $this->tableRepository->findAvailable($dto->seats_requested, $dto->date, $dto->start_time, $endTime);
     }
 }
