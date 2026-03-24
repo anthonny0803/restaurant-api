@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers\Client;
 
+use App\DTOs\AvailableTablesDTO;
 use App\DTOs\HoldReservationDTO;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AvailableTablesRequest;
 use App\Http\Requests\HoldReservationRequest;
 use App\Http\Resources\ReservationResource;
+use App\Http\Resources\TableResource;
 use App\Models\Reservation;
 use App\Services\ReservationService;
 use Illuminate\Http\JsonResponse;
@@ -14,6 +17,15 @@ use Illuminate\Http\Request;
 class ReservationController extends Controller
 {
     public function __construct(private ReservationService $service) {}
+
+    public function availableTables(AvailableTablesRequest $request): JsonResponse
+    {
+        $dto = new AvailableTablesDTO(...$request->validated());
+
+        $tables = $this->service->suggestAvailableTables($dto);
+
+        return TableResource::collection($tables)->response();
+    }
 
     public function store(HoldReservationRequest $request): JsonResponse
     {
