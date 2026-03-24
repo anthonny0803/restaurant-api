@@ -65,6 +65,8 @@ class AuthService
 
         $this->userRepository->update($user, ['password' => $dto->password]);
 
+        $user->tokens()->delete();
+
         return $user;
     }
 

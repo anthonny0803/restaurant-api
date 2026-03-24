@@ -75,6 +75,22 @@ class CompleteAccountTest extends TestCase
             ->assertJsonValidationErrors(['password']);
     }
 
+    public function test_complete_account_revokes_all_tokens(): void
+    {
+        $user = $this->lazyUser();
+        $user->createToken('guest-token');
+
+        $this->assertDatabaseCount('personal_access_tokens', 1);
+
+        $this->actingAs($user)
+            ->postJson('/api/auth/complete-account', [
+                'password' => 'NewPassword1',
+                'password_confirmation' => 'NewPassword1',
+            ]);
+
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
     public function test_unauthenticated_user_cannot_complete_account(): void
     {
         $response = $this->postJson('/api/auth/complete-account', [
