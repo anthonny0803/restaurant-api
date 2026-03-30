@@ -54,7 +54,6 @@ class ReservationFactory extends Factory
             $reservation->cancellationPolicySnapshot()->create([
                 'cancellation_deadline_hours' => 24,
                 'refund_percentage' => 50,
-                'admin_fee_percentage' => 10,
                 'policy_accepted_at' => now(),
             ]);
         });

@@ -13,7 +13,6 @@ class RestaurantSettingSeeder extends Seeder
             'deposit_per_person' => 5.00,
             'cancellation_deadline_hours' => 24,
             'refund_percentage' => 50,
-            'admin_fee_percentage' => 10,
             'default_reservation_duration_minutes' => 120,
             'reminder_hours_before' => 24,
             'time_slot_interval_minutes' => 30,

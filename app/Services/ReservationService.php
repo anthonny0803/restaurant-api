@@ -101,7 +101,6 @@ class ReservationService
             $this->reservationRepository->createSnapshot($reservation, [
                 'cancellation_deadline_hours' => $settings->cancellation_deadline_hours,
                 'refund_percentage' => $settings->refund_percentage,
-                'admin_fee_percentage' => $settings->admin_fee_percentage,
                 'policy_accepted_at' => now(),
             ]);
 

@@ -13,7 +13,6 @@ class CancellationPolicySnapshot extends Model
         'reservation_id',
         'cancellation_deadline_hours',
         'refund_percentage',
-        'admin_fee_percentage',
         'policy_accepted_at',
     ];
 

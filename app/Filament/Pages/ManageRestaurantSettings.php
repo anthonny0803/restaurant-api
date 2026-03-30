@@ -88,14 +88,6 @@ class ManageRestaurantSettings extends Page
                             ->maxValue(100)
                             ->suffix('%'),
 
-                        TextInput::make('admin_fee_percentage')
-                            ->label('Tarifa administrativa')
-                            ->helperText('Campo pendiente de eliminacion. No se usa en ningun calculo.')
-                            ->required()
-                            ->integer()
-                            ->minValue(0)
-                            ->maxValue(100)
-                            ->suffix('%'),
                     ])
                     ->columns(2),
 
