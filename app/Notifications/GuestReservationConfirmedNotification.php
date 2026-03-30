@@ -42,7 +42,7 @@ class GuestReservationConfirmedNotification extends Notification implements Shou
             ->line('---')
             ->line('Politica de cancelacion:')
             ->line("- Si cancelas con mas de {$policy->cancellation_deadline_hours} horas de antelacion, recibiras un reembolso completo.")
-            ->line("- Si cancelas con menos de {$policy->cancellation_deadline_hours} horas de antelacion, recibiras un reembolso del {$policy->refund_percentage}% (se aplica un cargo administrativo del {$policy->admin_fee_percentage}%).")
+            ->line("- Si cancelas con menos de {$policy->cancellation_deadline_hours} horas de antelacion, recibiras un reembolso del {$policy->refund_percentage}% del deposito.")
             ->line('---')
             ->line('Tu token de acceso para gestionar tu reserva:')
             ->line($this->token)
