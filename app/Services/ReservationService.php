@@ -200,6 +200,19 @@ class ReservationService
         return $reservation;
     }
 
+    public function markAsNoShow(Reservation $reservation): Reservation
+    {
+        if ($reservation->status !== Reservation::STATUS_COMPLETED) {
+            throw ValidationException::withMessages([
+                'reservation' => ['Solo las reservas completadas pueden marcarse como no show.'],
+            ]);
+        }
+
+        $this->reservationRepository->updateStatus($reservation, Reservation::STATUS_NO_SHOW);
+
+        return $reservation->fresh();
+    }
+
     public function find(int $id): ?Reservation
     {
         return $this->reservationRepository->find($id);

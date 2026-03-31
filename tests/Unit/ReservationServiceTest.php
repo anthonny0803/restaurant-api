@@ -234,6 +234,54 @@ class ReservationServiceTest extends TestCase
         $this->service->cancel($reservation);
     }
 
+    // ── markAsNoShow ─────────────────────────────────────────
+
+    public function test_mark_as_no_show_changes_completed_to_no_show(): void
+    {
+        /** @var Reservation&MockInterface $reservation */
+        $reservation = Mockery::mock(Reservation::class)->makePartial();
+        $reservation->status = Reservation::STATUS_COMPLETED;
+
+        $this->reservationRepository
+            ->shouldReceive('updateStatus')
+            ->with($reservation, Reservation::STATUS_NO_SHOW)
+            ->once();
+
+        /** @var Reservation&MockInterface $freshReservation */
+        $freshReservation = Mockery::mock(Reservation::class)->makePartial();
+        $freshReservation->status = Reservation::STATUS_NO_SHOW;
+        $reservation->shouldReceive('fresh')->once()->andReturn($freshReservation);
+
+        $result = $this->service->markAsNoShow($reservation);
+
+        $this->assertEquals(Reservation::STATUS_NO_SHOW, $result->status);
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('nonCompletedStatusProvider')]
+    public function test_mark_as_no_show_rejects_non_completed_status(string $status): void
+    {
+        /** @var Reservation&MockInterface $reservation */
+        $reservation = Mockery::mock(Reservation::class)->makePartial();
+        $reservation->status = $status;
+
+        $this->expectException(ValidationException::class);
+
+        $this->service->markAsNoShow($reservation);
+    }
+
+    public static function nonCompletedStatusProvider(): array
+    {
+        return [
+            'pending' => [Reservation::STATUS_PENDING],
+            'confirmed' => [Reservation::STATUS_CONFIRMED],
+            'cancelled' => [Reservation::STATUS_CANCELLED],
+            'expired' => [Reservation::STATUS_EXPIRED],
+            'no_show' => [Reservation::STATUS_NO_SHOW],
+        ];
+    }
+
+    // ── cancel (same day) ───────────────────────────────────
+
     public function test_cancel_same_day_applies_partial_refund(): void
     {
         /** @var Reservation&MockInterface $reservation */
