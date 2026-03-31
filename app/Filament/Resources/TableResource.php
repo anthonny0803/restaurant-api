@@ -24,6 +24,10 @@ class TableResource extends Resource
 
     protected static string | BackedEnum | null $navigationIcon = Heroicon::OutlinedTableCells;
 
+    protected static string | \UnitEnum | null $navigationGroup = 'Restaurante';
+
+    protected static ?int $navigationSort = 1;
+
     protected static ?string $navigationLabel = 'Mesas';
 
     protected static ?string $modelLabel = 'Mesa';

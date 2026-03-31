@@ -27,6 +27,10 @@ class MenuItemResource extends Resource
 
     protected static string | BackedEnum | null $navigationIcon = Heroicon::OutlinedBookOpen;
 
+    protected static string | \UnitEnum | null $navigationGroup = 'Restaurante';
+
+    protected static ?int $navigationSort = 2;
+
     protected static ?string $navigationLabel = 'Platos';
 
     protected static ?string $modelLabel = 'Plato';
