@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\CancellationPolicySnapshot;
 use App\Models\Reservation;
+use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -34,6 +35,7 @@ class ReservationRepository
             ->forTable($tableId)
             ->forDate($date)
             ->overlapping($startTime, $endTime)
+            ->lockForUpdate()
             ->exists();
     }
 
@@ -41,19 +43,22 @@ class ReservationRepository
     {
         return Reservation::pending()
             ->where('user_id', $userId)
+            ->lockForUpdate()
             ->exists();
     }
 
-    public function paginateForUser(int $userId, int $perPage = 15): LengthAwarePaginator
+    public function paginateForUser(int $userId, int $perPage = 6): LengthAwarePaginator
     {
         return Reservation::where('user_id', $userId)
+            ->with(['table', 'payment'])
             ->latest()
             ->paginate($perPage);
     }
 
-    public function paginate(int $perPage = 15): LengthAwarePaginator
+    public function paginate(int $perPage = 6): LengthAwarePaginator
     {
-        return Reservation::latest()
+        return Reservation::with(['table', 'payment'])
+            ->latest()
             ->paginate($perPage);
     }
 
@@ -67,5 +72,44 @@ class ReservationRepository
         $reservation->update(['status' => $status]);
 
         return $reservation;
+    }
+
+    public function markReminderSent(Reservation $reservation): void
+    {
+        $reservation->update(['reminder_sent_at' => now()]);
+    }
+
+    public function findCompletable(): Collection
+    {
+        return Reservation::where('status', Reservation::STATUS_CONFIRMED)
+            ->whereRaw(
+                'CAST(date AS timestamp) + end_time < ?',
+                [now()]
+            )
+            ->with('table')
+            ->get();
+    }
+
+    public function findDueForReminder(int $reminderHours): Collection
+    {
+        $now = now();
+        $windowEnd = $now->copy()->addHours($reminderHours);
+
+        return Reservation::where('status', Reservation::STATUS_CONFIRMED)
+            ->whereNull('reminder_sent_at')
+            ->whereRaw(
+                'CAST(date AS timestamp) + start_time <= ?',
+                [$windowEnd]
+            )
+            ->whereRaw(
+                'CAST(date AS timestamp) + start_time > ?',
+                [$now]
+            )
+            ->whereRaw(
+                'created_at <= (CAST(date AS timestamp) + start_time) - make_interval(hours => ?)',
+                [$reminderHours]
+            )
+            ->with(['user', 'table'])
+            ->get();
     }
 }

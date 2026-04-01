@@ -16,7 +16,7 @@ class HoldReservationRequest extends FormRequest
         return [
             'table_id' => ['required', 'integer', 'exists:tables,id'],
             'seats_requested' => ['required', 'integer', 'min:1'],
-            'date' => ['required', 'date', 'date_format:Y-m-d'],
+            'date' => ['required', 'date_format:Y-m-d'],
             'start_time' => ['required', 'date_format:H:i'],
         ];
     }

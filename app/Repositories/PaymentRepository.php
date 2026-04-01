@@ -13,7 +13,9 @@ class PaymentRepository
 
     public function findByGatewayId(string $gatewayId): ?Payment
     {
-        return Payment::where('payment_gateway_id', $gatewayId)->first();
+        return Payment::where('payment_gateway_id', $gatewayId)
+            ->with('reservation')
+            ->first();
     }
 
     public function update(Payment $payment, array $data): Payment

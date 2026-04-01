@@ -5,18 +5,20 @@ namespace Tests\Feature;
 use App\Jobs\ExpireReservationJob;
 use App\Models\Payment;
 use App\Models\Reservation;
+use App\Models\RestaurantSetting;
 use App\Models\Table;
-use App\Models\User;
 use App\Services\PaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Mockery;
 use Mockery\MockInterface;
 use Tests\TestCase;
+use Tests\Traits\CreatesUsers;
 
 class ReservationTest extends TestCase
 {
     use RefreshDatabase;
+    use CreatesUsers;
 
     private PaymentService&MockInterface $paymentServiceMock;
 
@@ -31,64 +33,14 @@ class ReservationTest extends TestCase
         $this->app->instance(PaymentService::class, $this->paymentServiceMock);
     }
 
-    private function clientUser(): User
-    {
-        $user = User::factory()->create();
-        $user->assignRole('client');
-
-        return $user;
-    }
-
-    private function adminUser(): User
-    {
-        $user = User::factory()->create();
-        $user->assignRole('admin');
-
-        return $user;
-    }
-
-    private function createTable(array $overrides = []): Table
-    {
-        return Table::create(array_merge([
-            'name' => 'Mesa ' . uniqid(),
-            'min_capacity' => 2,
-            'max_capacity' => 4,
-            'location' => 'interior',
-            'is_active' => true,
-        ], $overrides));
-    }
-
     private function holdData(array $overrides = []): array
     {
         return array_merge([
-            'table_id' => $this->createTable()->id,
+            'table_id' => Table::factory()->create()->id,
             'seats_requested' => 2,
             'date' => now()->addDays(3)->format('Y-m-d'),
             'start_time' => '20:00',
         ], $overrides);
-    }
-
-    private function createReservation(User $user, Table $table, array $overrides = []): Reservation
-    {
-        $reservation = Reservation::create(array_merge([
-            'user_id' => $user->id,
-            'table_id' => $table->id,
-            'seats_requested' => 2,
-            'date' => now()->addDays(3)->format('Y-m-d'),
-            'start_time' => '20:00:00',
-            'end_time' => '22:00:00',
-            'status' => Reservation::STATUS_CONFIRMED,
-            'expires_at' => now()->addMinutes(15),
-        ], $overrides));
-
-        $reservation->cancellationPolicySnapshot()->create([
-            'cancellation_deadline_hours' => 24,
-            'refund_percentage' => 50,
-            'admin_fee_percentage' => 10,
-            'policy_accepted_at' => now(),
-        ]);
-
-        return $reservation;
     }
 
     // ── Hold (store) ─────────────────────────────────────────
@@ -109,7 +61,7 @@ class ReservationTest extends TestCase
                 'client_secret' => 'pi_test_123_secret',
             ]);
 
-        $table = $this->createTable();
+        $table = Table::factory()->create();
 
         $response = $this->actingAs($this->clientUser())
             ->postJson('/api/reservations', [
@@ -139,7 +91,7 @@ class ReservationTest extends TestCase
     {
         $this->paymentServiceMock->shouldNotReceive('createPaymentIntent');
 
-        $table = $this->createTable(['is_active' => false]);
+        $table = Table::factory()->inactive()->create();
 
         $response = $this->actingAs($this->clientUser())
             ->postJson('/api/reservations', [
@@ -157,7 +109,7 @@ class ReservationTest extends TestCase
     {
         $this->paymentServiceMock->shouldNotReceive('createPaymentIntent');
 
-        $table = $this->createTable(['min_capacity' => 2, 'max_capacity' => 4]);
+        $table = Table::factory()->create(['min_capacity' => 2, 'max_capacity' => 4]);
 
         $response = $this->actingAs($this->clientUser())
             ->postJson('/api/reservations', [
@@ -214,7 +166,7 @@ class ReservationTest extends TestCase
             ]);
 
         $client = $this->clientUser();
-        $table = $this->createTable();
+        $table = Table::factory()->create();
         $date = now()->addDays(3)->format('Y-m-d');
 
         $this->actingAs($client)->postJson('/api/reservations', [
@@ -224,7 +176,7 @@ class ReservationTest extends TestCase
             'start_time' => '20:00',
         ]);
 
-        $secondTable = $this->createTable();
+        $secondTable = Table::factory()->create();
 
         $response = $this->actingAs($client)
             ->postJson('/api/reservations', [
@@ -254,7 +206,7 @@ class ReservationTest extends TestCase
                 'client_secret' => 'pi_test_first_secret',
             ]);
 
-        $table = $this->createTable();
+        $table = Table::factory()->create();
         $date = now()->addDays(3)->format('Y-m-d');
 
         $firstClient = $this->clientUser();
@@ -302,10 +254,15 @@ class ReservationTest extends TestCase
     {
         $client = $this->clientUser();
         $otherClient = $this->clientUser();
-        $table = $this->createTable();
+        $table = Table::factory()->create();
 
-        $this->createReservation($client, $table);
-        $this->createReservation($otherClient, $table, [
+        Reservation::factory()->withCancellationPolicy()->create([
+            'user_id' => $client->id,
+            'table_id' => $table->id,
+        ]);
+        Reservation::factory()->withCancellationPolicy()->create([
+            'user_id' => $otherClient->id,
+            'table_id' => $table->id,
             'date' => now()->addDays(4)->format('Y-m-d'),
         ]);
 
@@ -318,15 +275,16 @@ class ReservationTest extends TestCase
 
     public function test_admin_sees_all_reservations(): void
     {
-        $table = $this->createTable();
+        $table = Table::factory()->create();
 
-        $this->createReservation($this->clientUser(), $table);
-        $this->createReservation($this->clientUser(), $table, [
+        Reservation::factory()->withCancellationPolicy()->create(['table_id' => $table->id]);
+        Reservation::factory()->withCancellationPolicy()->create([
+            'table_id' => $table->id,
             'date' => now()->addDays(4)->format('Y-m-d'),
         ]);
 
         $response = $this->actingAs($this->adminUser())
-            ->getJson('/api/reservations');
+            ->getJson('/api/admin/reservations');
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data');
@@ -337,8 +295,9 @@ class ReservationTest extends TestCase
     public function test_client_can_view_own_reservation(): void
     {
         $client = $this->clientUser();
-        $table = $this->createTable();
-        $reservation = $this->createReservation($client, $table);
+        $reservation = Reservation::factory()->withCancellationPolicy()->create([
+            'user_id' => $client->id,
+        ]);
 
         $response = $this->actingAs($client)
             ->getJson("/api/reservations/{$reservation->id}");
@@ -349,8 +308,7 @@ class ReservationTest extends TestCase
 
     public function test_client_cannot_view_others_reservation(): void
     {
-        $table = $this->createTable();
-        $reservation = $this->createReservation($this->clientUser(), $table);
+        $reservation = Reservation::factory()->withCancellationPolicy()->create();
 
         $response = $this->actingAs($this->clientUser())
             ->getJson("/api/reservations/{$reservation->id}");
@@ -360,11 +318,10 @@ class ReservationTest extends TestCase
 
     public function test_admin_can_view_any_reservation(): void
     {
-        $table = $this->createTable();
-        $reservation = $this->createReservation($this->clientUser(), $table);
+        $reservation = Reservation::factory()->withCancellationPolicy()->create();
 
         $response = $this->actingAs($this->adminUser())
-            ->getJson("/api/reservations/{$reservation->id}");
+            ->getJson("/api/admin/reservations/{$reservation->id}");
 
         $response->assertStatus(200)
             ->assertJsonPath('data.id', $reservation->id);
@@ -379,15 +336,11 @@ class ReservationTest extends TestCase
             ->once();
 
         $client = $this->clientUser();
-        $table = $this->createTable();
-        $reservation = $this->createReservation($client, $table);
-
-        $reservation->payment()->create([
-            'amount' => 10.00,
-            'status' => Payment::STATUS_SUCCEEDED,
-            'payment_gateway_id' => 'pi_test_cancel',
-            'paid_at' => now(),
+        $reservation = Reservation::factory()->withCancellationPolicy()->create([
+            'user_id' => $client->id,
         ]);
+
+        Payment::factory()->succeeded()->create(['reservation_id' => $reservation->id]);
 
         $response = $this->actingAs($client)
             ->postJson("/api/reservations/{$reservation->id}/cancel");
@@ -404,9 +357,8 @@ class ReservationTest extends TestCase
     public function test_cancel_pending_reservation_without_payment(): void
     {
         $client = $this->clientUser();
-        $table = $this->createTable();
-        $reservation = $this->createReservation($client, $table, [
-            'status' => Reservation::STATUS_PENDING,
+        $reservation = Reservation::factory()->pending()->withCancellationPolicy()->create([
+            'user_id' => $client->id,
         ]);
 
         $this->paymentServiceMock->shouldNotReceive('refund');
@@ -421,9 +373,8 @@ class ReservationTest extends TestCase
     public function test_cannot_cancel_already_expired_reservation(): void
     {
         $client = $this->clientUser();
-        $table = $this->createTable();
-        $reservation = $this->createReservation($client, $table, [
-            'status' => Reservation::STATUS_EXPIRED,
+        $reservation = Reservation::factory()->expired()->withCancellationPolicy()->create([
+            'user_id' => $client->id,
         ]);
 
         $response = $this->actingAs($client)
@@ -435,12 +386,160 @@ class ReservationTest extends TestCase
 
     public function test_client_cannot_cancel_others_reservation(): void
     {
-        $table = $this->createTable();
-        $reservation = $this->createReservation($this->clientUser(), $table);
+        $reservation = Reservation::factory()->withCancellationPolicy()->create();
 
         $response = $this->actingAs($this->clientUser())
             ->postJson("/api/reservations/{$reservation->id}/cancel");
 
         $response->assertStatus(403);
+    }
+
+    // ── Time slot interval ─────────────────────────────────
+
+    public function test_hold_rejects_start_time_not_aligned_to_time_slot_interval(): void
+    {
+        $this->paymentServiceMock->shouldNotReceive('createPaymentIntent');
+
+        $table = Table::factory()->create();
+
+        $response = $this->actingAs($this->clientUser())
+            ->postJson('/api/reservations', [
+                'table_id' => $table->id,
+                'seats_requested' => 2,
+                'date' => now()->addDays(3)->format('Y-m-d'),
+                'start_time' => '20:15',
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['start_time']);
+    }
+
+    public function test_hold_accepts_start_time_aligned_to_time_slot_interval(): void
+    {
+        Queue::fake();
+
+        $this->paymentServiceMock
+            ->shouldReceive('createPaymentIntent')
+            ->once()
+            ->andReturn([
+                'payment' => new Payment([
+                    'amount' => 10.00,
+                    'status' => Payment::STATUS_PENDING,
+                    'payment_gateway_id' => 'pi_test_slot',
+                ]),
+                'client_secret' => 'pi_test_slot_secret',
+            ]);
+
+        RestaurantSetting::first()->update(['time_slot_interval_minutes' => 15]);
+
+        $table = Table::factory()->create();
+
+        $response = $this->actingAs($this->clientUser())
+            ->postJson('/api/reservations', [
+                'table_id' => $table->id,
+                'seats_requested' => 2,
+                'date' => now()->addDays(3)->format('Y-m-d'),
+                'start_time' => '20:15',
+            ]);
+
+        $response->assertStatus(201);
+    }
+
+    // ── Today booking ─────────────────────────────────────
+
+    public function test_hold_allows_booking_for_today(): void
+    {
+        Queue::fake();
+
+        $this->paymentServiceMock
+            ->shouldReceive('createPaymentIntent')
+            ->once()
+            ->andReturn([
+                'payment' => new Payment([
+                    'amount' => 10.00,
+                    'status' => Payment::STATUS_PENDING,
+                    'payment_gateway_id' => 'pi_test_today',
+                ]),
+                'client_secret' => 'pi_test_today_secret',
+            ]);
+
+        $table = Table::factory()->create();
+
+        $response = $this->actingAs($this->clientUser())
+            ->postJson('/api/reservations', [
+                'table_id' => $table->id,
+                'seats_requested' => 2,
+                'date' => now()->format('Y-m-d'),
+                'start_time' => now()->addHours(2)->startOfHour()->format('H:i'),
+            ]);
+
+        $response->assertStatus(201);
+    }
+
+    public function test_hold_rejects_past_time_today(): void
+    {
+        $this->paymentServiceMock->shouldNotReceive('createPaymentIntent');
+
+        $response = $this->actingAs($this->clientUser())
+            ->postJson('/api/reservations', $this->holdData([
+                'date' => now()->format('Y-m-d'),
+                'start_time' => now()->subHours(2)->format('H:i'),
+            ]));
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['date']);
+    }
+
+    // ── Transaction rollback ────────────────────────────────
+
+    public function test_hold_does_not_create_reservation_when_stripe_fails(): void
+    {
+        $this->paymentServiceMock
+            ->shouldReceive('createPaymentIntent')
+            ->once()
+            ->andThrow(new \Exception('Stripe connection error'));
+
+        $table = Table::factory()->create();
+
+        $response = $this->actingAs($this->clientUser())
+            ->postJson('/api/reservations', [
+                'table_id' => $table->id,
+                'seats_requested' => 2,
+                'date' => now()->addDays(3)->format('Y-m-d'),
+                'start_time' => '20:00',
+            ]);
+
+        $response->assertStatus(500);
+
+        $this->assertDatabaseMissing('reservations', [
+            'table_id' => $table->id,
+        ]);
+
+        $this->assertDatabaseCount('cancellation_policy_snapshots', 0);
+    }
+
+    public function test_cancel_does_not_change_status_when_stripe_refund_fails(): void
+    {
+        $this->paymentServiceMock
+            ->shouldReceive('refund')
+            ->once()
+            ->andThrow(new \Exception('Stripe refund error'));
+
+        $client = $this->clientUser();
+        $reservation = Reservation::factory()->withCancellationPolicy()->create([
+            'user_id' => $client->id,
+        ]);
+
+        Payment::factory()->succeeded()->create(['reservation_id' => $reservation->id]);
+
+        $response = $this->actingAs($client)
+            ->postJson("/api/reservations/{$reservation->id}/cancel");
+
+        $response->assertStatus(500);
+
+        $this->assertDatabaseHas('reservations', [
+            'id' => $reservation->id,
+            'status' => Reservation::STATUS_CONFIRMED,
+        ]);
     }
 }

@@ -2,14 +2,21 @@
 
 namespace App\Services;
 
+use App\DTOs\AvailableTablesDTO;
 use App\DTOs\HoldReservationDTO;
 use App\Jobs\ExpireReservationJob;
+use App\Notifications\ReservationCancelledNotification;
+use App\Notifications\GuestReservationConfirmedNotification;
+use App\Notifications\ReservationConfirmedNotification;
+use App\Notifications\ReservationExpiredRefundNotification;
+use App\Models\Payment;
 use App\Models\Reservation;
-use App\Models\Table;
 use App\Repositories\ReservationRepository;
 use App\Repositories\RestaurantSettingRepository;
+use App\Repositories\TableRepository;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -20,57 +27,66 @@ class ReservationService
     public function __construct(
         private ReservationRepository $reservationRepository,
         private RestaurantSettingRepository $settingRepository,
+        private TableRepository $tableRepository,
         private PaymentService $paymentService,
     ) {}
 
     public function hold(HoldReservationDTO $dto): array
     {
-        if ($this->reservationRepository->hasPendingReservation($dto->user_id)) {
-            throw ValidationException::withMessages([
-                'reservation' => ['Ya tienes una reserva pendiente de pago.'],
-            ]);
-        }
-
-        $table = Table::findOrFail($dto->table_id);
-
-        if (! $table->is_active) {
-            throw ValidationException::withMessages([
-                'table_id' => ['Esta mesa no esta disponible.'],
-            ]);
-        }
-
-        if ($dto->seats_requested < $table->min_capacity || $dto->seats_requested > $table->max_capacity) {
-            throw ValidationException::withMessages([
-                'seats_requested' => ["Los comensales deben ser entre {$table->min_capacity} y {$table->max_capacity} para esta mesa."],
-            ]);
-        }
-
-        $reservationDate = Carbon::parse($dto->date);
-
-        if ($reservationDate->isPast() || $reservationDate->greaterThan(now()->addWeek())) {
-            throw ValidationException::withMessages([
-                'date' => ['Las reservas deben ser dentro de los proximos 7 dias.'],
-            ]);
-        }
-
-        $settings = $this->settingRepository->get();
-
-        $endTime = Carbon::parse($dto->start_time)
-            ->addMinutes($settings->default_reservation_duration_minutes)
-            ->format('H:i:s');
-
-        if ($this->reservationRepository->hasOverlappingReservation(
-            $dto->table_id, $dto->date, $dto->start_time, $endTime
-        )) {
-            throw ValidationException::withMessages([
-                'table_id' => ['Esta mesa no esta disponible para el horario seleccionado.'],
-            ]);
-        }
-
         $expiresAt = now()->addMinutes(self::HOLD_DURATION_MINUTES);
-        $depositAmount = (float) $settings->deposit_per_person * $dto->seats_requested;
 
-        $result = DB::transaction(function () use ($dto, $settings, $endTime, $expiresAt, $depositAmount) {
+        $result = DB::transaction(function () use ($dto, $expiresAt) {
+            if ($this->reservationRepository->hasPendingReservation($dto->user_id)) {
+                throw ValidationException::withMessages([
+                    'reservation' => ['Ya tienes una reserva pendiente de pago.'],
+                ]);
+            }
+
+            $table = $this->tableRepository->findOrFail($dto->table_id);
+
+            if (! $table->is_active) {
+                throw ValidationException::withMessages([
+                    'table_id' => ['Esta mesa no esta disponible.'],
+                ]);
+            }
+
+            if ($dto->seats_requested < $table->min_capacity || $dto->seats_requested > $table->max_capacity) {
+                throw ValidationException::withMessages([
+                    'seats_requested' => ["Los comensales deben ser entre {$table->min_capacity} y {$table->max_capacity} para esta mesa."],
+                ]);
+            }
+
+            $reservationDateTime = Carbon::parse($dto->date . ' ' . $dto->start_time);
+
+            if ($reservationDateTime->isPast() || Carbon::parse($dto->date)->greaterThan(now()->addWeek())) {
+                throw ValidationException::withMessages([
+                    'date' => ['Las reservas deben ser dentro de los proximos 7 dias.'],
+                ]);
+            }
+
+            $settings = $this->settingRepository->get();
+
+            $startTimeMinutes = Carbon::parse($dto->start_time)->minute;
+            if ($startTimeMinutes % $settings->time_slot_interval_minutes !== 0) {
+                throw ValidationException::withMessages([
+                    'start_time' => ["La hora de inicio debe estar alineada a intervalos de {$settings->time_slot_interval_minutes} minutos."],
+                ]);
+            }
+
+            $endTime = Carbon::parse($dto->start_time)
+                ->addMinutes($settings->default_reservation_duration_minutes)
+                ->format('H:i:s');
+
+            if ($this->reservationRepository->hasOverlappingReservation(
+                $dto->table_id, $dto->date, $dto->start_time, $endTime
+            )) {
+                throw ValidationException::withMessages([
+                    'table_id' => ['Esta mesa no esta disponible para el horario seleccionado.'],
+                ]);
+            }
+
+            $depositAmount = (float) $settings->deposit_per_person * $dto->seats_requested;
+
             $reservation = $this->reservationRepository->create([
                 'user_id' => $dto->user_id,
                 'table_id' => $dto->table_id,
@@ -85,7 +101,6 @@ class ReservationService
             $this->reservationRepository->createSnapshot($reservation, [
                 'cancellation_deadline_hours' => $settings->cancellation_deadline_hours,
                 'refund_percentage' => $settings->refund_percentage,
-                'admin_fee_percentage' => $settings->admin_fee_percentage,
                 'policy_accepted_at' => now(),
             ]);
 
@@ -118,12 +133,31 @@ class ReservationService
         if ($reservation->status === Reservation::STATUS_EXPIRED) {
             $this->paymentService->refund($payment, (float) $payment->amount);
 
+            $reservation->user?->notify(
+                new ReservationExpiredRefundNotification($reservation, (float) $payment->amount)
+            );
+
             return $reservation;
         }
 
         $this->reservationRepository->updateStatus($reservation, Reservation::STATUS_CONFIRMED);
 
-        return $reservation->fresh();
+        $reservation = $reservation->fresh();
+
+        if (! $reservation->user) {
+            return $reservation;
+        }
+
+        if ($reservation->user->isGuest()) {
+            $token = $reservation->user->createToken('guest-token')->plainTextToken;
+            $reservation->user->notify(new GuestReservationConfirmedNotification($reservation, $token));
+
+            return $reservation;
+        }
+
+        $reservation->user->notify(new ReservationConfirmedNotification($reservation));
+
+        return $reservation;
     }
 
     public function cancel(Reservation $reservation): Reservation
@@ -136,23 +170,45 @@ class ReservationService
 
         $reservationDateTime = Carbon::parse($reservation->date->format('Y-m-d') . ' ' . $reservation->start_time);
 
-        $this->reservationRepository->updateStatus($reservation, Reservation::STATUS_CANCELLED);
+        $refundAmount = DB::transaction(function () use ($reservation, $reservationDateTime) {
+            $this->reservationRepository->updateStatus($reservation, Reservation::STATUS_CANCELLED);
 
-        $payment = $reservation->payment;
+            $payment = $reservation->payment;
 
-        if (! $payment || $payment->status !== \App\Models\Payment::STATUS_SUCCEEDED) {
-            return $reservation->fresh();
+            if ($payment && $payment->status === Payment::STATUS_SUCCEEDED) {
+                $snapshot = $reservation->cancellationPolicySnapshot;
+                $hoursUntilReservation = now()->diffInHours($reservationDateTime, false);
+
+                $refundAmount = $hoursUntilReservation >= $snapshot->cancellation_deadline_hours
+                    ? (float) $payment->amount
+                    : (float) $payment->amount * $snapshot->refund_percentage / 100;
+
+                $this->paymentService->refund($payment, $refundAmount);
+
+                return $refundAmount;
+            }
+
+            return null;
+        });
+
+        $reservation = $reservation->fresh();
+
+        if ($reservation->user) {
+            $reservation->user->notify(new ReservationCancelledNotification($reservation, $refundAmount));
         }
 
-        $snapshot = $reservation->cancellationPolicySnapshot;
-        $hoursUntilReservation = now()->diffInHours($reservationDateTime, false);
+        return $reservation;
+    }
 
-        if ($hoursUntilReservation >= $snapshot->cancellation_deadline_hours) {
-            $this->paymentService->refund($payment, (float) $payment->amount);
-        } else {
-            $refundAmount = (float) $payment->amount * $snapshot->refund_percentage / 100;
-            $this->paymentService->refund($payment, $refundAmount);
+    public function markAsNoShow(Reservation $reservation): Reservation
+    {
+        if ($reservation->status !== Reservation::STATUS_COMPLETED) {
+            throw ValidationException::withMessages([
+                'reservation' => ['Solo las reservas completadas pueden marcarse como no show.'],
+            ]);
         }
+
+        $this->reservationRepository->updateStatus($reservation, Reservation::STATUS_NO_SHOW);
 
         return $reservation->fresh();
     }
@@ -162,13 +218,39 @@ class ReservationService
         return $this->reservationRepository->find($id);
     }
 
-    public function listForUser(int $userId, int $perPage = 15): LengthAwarePaginator
+    public function listForUser(int $userId, int $perPage = 6): LengthAwarePaginator
     {
         return $this->reservationRepository->paginateForUser($userId, $perPage);
     }
 
-    public function listAll(int $perPage = 15): LengthAwarePaginator
+    public function listAll(int $perPage = 6): LengthAwarePaginator
     {
         return $this->reservationRepository->paginate($perPage);
+    }
+
+    public function suggestAvailableTables(AvailableTablesDTO $dto): Collection
+    {
+        $reservationDateTime = Carbon::parse($dto->date . ' ' . $dto->start_time);
+
+        if ($reservationDateTime->isPast() || Carbon::parse($dto->date)->greaterThan(now()->addWeek())) {
+            throw ValidationException::withMessages([
+                'date' => ['Las reservas deben ser dentro de los proximos 7 dias.'],
+            ]);
+        }
+
+        $settings = $this->settingRepository->get();
+
+        $startTimeMinutes = Carbon::parse($dto->start_time)->minute;
+        if ($startTimeMinutes % $settings->time_slot_interval_minutes !== 0) {
+            throw ValidationException::withMessages([
+                'start_time' => ["La hora de inicio debe estar alineada a intervalos de {$settings->time_slot_interval_minutes} minutos."],
+            ]);
+        }
+
+        $endTime = Carbon::parse($dto->start_time)
+            ->addMinutes($settings->default_reservation_duration_minutes)
+            ->format('H:i:s');
+
+        return $this->tableRepository->findAvailable($dto->seats_requested, $dto->date, $dto->start_time, $endTime);
     }
 }

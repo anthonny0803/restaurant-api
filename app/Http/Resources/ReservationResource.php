@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Reservation;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -19,7 +20,7 @@ class ReservationResource extends JsonResource
             'end_time' => $this->end_time,
             'status' => $this->status,
             'expires_at' => $this->when(
-                $this->status === 'pending',
+                $this->status === Reservation::STATUS_PENDING,
                 $this->expires_at?->toDateTimeString(),
             ),
             'payment' => $this->when(

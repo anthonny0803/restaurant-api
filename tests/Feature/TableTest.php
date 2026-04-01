@@ -3,34 +3,19 @@
 namespace Tests\Feature;
 
 use App\Models\Table;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use Tests\Traits\CreatesUsers;
 
 class TableTest extends TestCase
 {
     use RefreshDatabase;
+    use CreatesUsers;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->seed(\Database\Seeders\RoleSeeder::class);
-    }
-
-    private function adminUser(): User
-    {
-        $user = User::factory()->create();
-        $user->assignRole('admin');
-
-        return $user;
-    }
-
-    private function clientUser(): User
-    {
-        $user = User::factory()->create();
-        $user->assignRole('client');
-
-        return $user;
     }
 
     private function tableData(array $overrides = []): array
@@ -47,10 +32,10 @@ class TableTest extends TestCase
 
     public function test_admin_can_list_tables(): void
     {
-        Table::create($this->tableData());
+        Table::factory()->create();
 
         $response = $this->actingAs($this->adminUser())
-            ->getJson('/api/tables');
+            ->getJson('/api/admin/tables');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -63,7 +48,7 @@ class TableTest extends TestCase
     public function test_admin_can_create_a_table(): void
     {
         $response = $this->actingAs($this->adminUser())
-            ->postJson('/api/tables', $this->tableData());
+            ->postJson('/api/admin/tables', $this->tableData());
 
         $response->assertStatus(201)
             ->assertJsonStructure([
@@ -75,10 +60,10 @@ class TableTest extends TestCase
 
     public function test_admin_can_view_a_table(): void
     {
-        $table = Table::create($this->tableData());
+        $table = Table::factory()->create();
 
         $response = $this->actingAs($this->adminUser())
-            ->getJson("/api/tables/{$table->id}");
+            ->getJson("/api/admin/tables/{$table->id}");
 
         $response->assertStatus(200)
             ->assertJsonPath('data.id', $table->id);
@@ -86,10 +71,10 @@ class TableTest extends TestCase
 
     public function test_admin_can_update_a_table(): void
     {
-        $table = Table::create($this->tableData());
+        $table = Table::factory()->create();
 
         $response = $this->actingAs($this->adminUser())
-            ->putJson("/api/tables/{$table->id}", ['name' => 'Mesa Actualizada']);
+            ->putJson("/api/admin/tables/{$table->id}", ['name' => 'Mesa Actualizada']);
 
         $response->assertStatus(200)
             ->assertJsonPath('data.name', 'Mesa Actualizada');
@@ -99,10 +84,10 @@ class TableTest extends TestCase
 
     public function test_admin_can_delete_a_table(): void
     {
-        $table = Table::create($this->tableData());
+        $table = Table::factory()->create();
 
         $response = $this->actingAs($this->adminUser())
-            ->deleteJson("/api/tables/{$table->id}");
+            ->deleteJson("/api/admin/tables/{$table->id}");
 
         $response->assertStatus(204);
 
@@ -112,24 +97,24 @@ class TableTest extends TestCase
     public function test_client_cannot_manage_tables(): void
     {
         $response = $this->actingAs($this->clientUser())
-            ->postJson('/api/tables', $this->tableData());
+            ->postJson('/api/admin/tables', $this->tableData());
 
         $response->assertStatus(403);
     }
 
     public function test_unauthenticated_user_cannot_access_tables(): void
     {
-        $response = $this->getJson('/api/tables');
+        $response = $this->getJson('/api/admin/tables');
 
         $response->assertStatus(401);
     }
 
     public function test_table_name_must_be_unique(): void
     {
-        Table::create($this->tableData());
+        Table::factory()->create(['name' => 'Mesa 1']);
 
         $response = $this->actingAs($this->adminUser())
-            ->postJson('/api/tables', $this->tableData());
+            ->postJson('/api/admin/tables', $this->tableData());
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['name']);
@@ -138,7 +123,7 @@ class TableTest extends TestCase
     public function test_max_capacity_must_be_greater_than_or_equal_to_min_capacity(): void
     {
         $response = $this->actingAs($this->adminUser())
-            ->postJson('/api/tables', $this->tableData([
+            ->postJson('/api/admin/tables', $this->tableData([
                 'min_capacity' => 6,
                 'max_capacity' => 2,
             ]));
@@ -147,10 +132,54 @@ class TableTest extends TestCase
             ->assertJsonValidationErrors(['max_capacity']);
     }
 
+    public function test_partial_update_max_capacity_rejects_value_below_existing_min(): void
+    {
+        $table = Table::factory()->create(['min_capacity' => 4, 'max_capacity' => 6]);
+
+        $response = $this->actingAs($this->adminUser())
+            ->putJson("/api/admin/tables/{$table->id}", [
+                'max_capacity' => 2,
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['max_capacity']);
+    }
+
+    public function test_partial_update_min_capacity_rejects_value_above_existing_max(): void
+    {
+        $table = Table::factory()->create(['min_capacity' => 2, 'max_capacity' => 4]);
+
+        $response = $this->actingAs($this->adminUser())
+            ->putJson("/api/admin/tables/{$table->id}", [
+                'min_capacity' => 6,
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['min_capacity']);
+    }
+
+    public function test_admin_can_clear_nullable_fields(): void
+    {
+        $table = Table::factory()->create(['description' => 'Mesa junto a la ventana']);
+
+        $response = $this->actingAs($this->adminUser())
+            ->putJson("/api/admin/tables/{$table->id}", [
+                'description' => null,
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.description', null);
+
+        $this->assertDatabaseHas('tables', [
+            'id' => $table->id,
+            'description' => null,
+        ]);
+    }
+
     public function test_show_returns_404_for_nonexistent_table(): void
     {
         $response = $this->actingAs($this->adminUser())
-            ->getJson('/api/tables/999');
+            ->getJson('/api/admin/tables/999');
 
         $response->assertStatus(404);
     }

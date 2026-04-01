@@ -2,19 +2,17 @@
 
 namespace App\Services;
 
+use App\Exceptions\PaymentNotFoundException;
 use App\Models\Payment;
 use App\Repositories\PaymentRepository;
 use Stripe\PaymentIntent;
 use Stripe\Refund;
-use Stripe\Stripe;
 
 class PaymentService
 {
     public function __construct(
         private PaymentRepository $paymentRepository,
-    ) {
-        Stripe::setApiKey(config('services.stripe.secret'));
-    }
+    ) {}
 
     public function createPaymentIntent(int $reservationId, float $amount): array
     {
@@ -45,7 +43,7 @@ class PaymentService
         $payment = $this->paymentRepository->findByGatewayId($gatewayId);
 
         if (! $payment) {
-            throw new \RuntimeException("Payment not found for gateway ID: {$gatewayId}");
+            throw new PaymentNotFoundException($gatewayId);
         }
 
         if ($payment->status === Payment::STATUS_SUCCEEDED) {

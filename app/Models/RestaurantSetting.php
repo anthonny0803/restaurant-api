@@ -10,8 +10,9 @@ class RestaurantSetting extends Model
         'deposit_per_person',
         'cancellation_deadline_hours',
         'refund_percentage',
-        'admin_fee_percentage',
         'default_reservation_duration_minutes',
+        'reminder_hours_before',
+        'time_slot_interval_minutes',
     ];
 
     protected function casts(): array

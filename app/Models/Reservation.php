@@ -3,12 +3,15 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Reservation extends Model
 {
+    use HasFactory;
     public const STATUS_PENDING = 'pending';
     public const STATUS_CONFIRMED = 'confirmed';
     public const STATUS_COMPLETED = 'completed';
@@ -18,6 +21,9 @@ class Reservation extends Model
 
     protected $fillable = [
         'user_id',
+        'guest_name',
+        'guest_email',
+        'guest_phone',
         'table_id',
         'seats_requested',
         'date',
@@ -25,6 +31,7 @@ class Reservation extends Model
         'end_time',
         'status',
         'expires_at',
+        'reminder_sent_at',
     ];
 
     protected function casts(): array
@@ -32,6 +39,7 @@ class Reservation extends Model
         return [
             'date' => 'date',
             'expires_at' => 'datetime',
+            'reminder_sent_at' => 'datetime',
         ];
     }
 
@@ -55,6 +63,11 @@ class Reservation extends Model
     public function payment(): HasOne
     {
         return $this->hasOne(Payment::class);
+    }
+
+    public function reservationItems(): HasMany
+    {
+        return $this->hasMany(ReservationItem::class);
     }
 
     // Scopes
