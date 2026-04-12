@@ -10,6 +10,7 @@ use App\Http\Controllers\Client\GuestReservationController;
 use App\Http\Controllers\Client\MenuItemController as ClientMenuItemController;
 use App\Http\Controllers\Client\PreOrderController;
 use App\Http\Controllers\Client\ReservationController as ClientReservationController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicSettingController;
 use App\Http\Controllers\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
@@ -53,6 +54,10 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
 });
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('profile', [ProfileController::class, 'show']);
+    Route::put('profile', [ProfileController::class, 'update']);
+    Route::put('profile/password', [ProfileController::class, 'updatePassword']);
+
     Route::prefix('reservations')->group(function () {
         Route::post('/', [ClientReservationController::class, 'store']);
         Route::get('/', [ClientReservationController::class, 'index']);
