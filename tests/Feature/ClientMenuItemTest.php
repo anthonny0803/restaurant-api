@@ -20,7 +20,7 @@ class ClientMenuItemTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'data' => [['id', 'name', 'description', 'price', 'category', 'is_available', 'created_at']],
+                'data' => [['id', 'name', 'description', 'price', 'category', 'is_available', 'is_featured', 'created_at']],
                 'links',
                 'meta',
             ])
@@ -89,6 +89,83 @@ class ClientMenuItemTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['category']);
+    }
+
+    public function test_can_filter_featured_items(): void
+    {
+        MenuItem::factory()->featured()->count(2)->create();
+        MenuItem::factory()->count(3)->create();
+
+        $response = $this->getJson('/api/menu-items?featured=1');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(2, 'data');
+
+        $response->json('data');
+        foreach ($response->json('data') as $item) {
+            $this->assertTrue($item['is_featured']);
+        }
+    }
+
+    public function test_can_filter_non_featured_items(): void
+    {
+        MenuItem::factory()->featured()->count(2)->create();
+        MenuItem::factory()->count(3)->create();
+
+        $response = $this->getJson('/api/menu-items?featured=0');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(3, 'data');
+
+        foreach ($response->json('data') as $item) {
+            $this->assertFalse($item['is_featured']);
+        }
+    }
+
+    public function test_featured_filter_combined_with_category(): void
+    {
+        MenuItem::factory()->featured()->create(['category' => 'entrantes']);
+        MenuItem::factory()->featured()->create(['category' => 'postres']);
+        MenuItem::factory()->create(['category' => 'entrantes']);
+
+        $response = $this->getJson('/api/menu-items?category=entrantes&featured=1');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_featured_filter_excludes_unavailable_items(): void
+    {
+        MenuItem::factory()->featured()->create();
+        MenuItem::factory()->featured()->unavailable()->create();
+
+        $response = $this->getJson('/api/menu-items?featured=1');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_without_featured_filter_returns_all_available(): void
+    {
+        MenuItem::factory()->featured()->count(2)->create();
+        MenuItem::factory()->count(3)->create();
+
+        $response = $this->getJson('/api/menu-items');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(5, 'data');
+    }
+
+    public function test_response_includes_is_featured_field(): void
+    {
+        MenuItem::factory()->featured()->create();
+
+        $response = $this->getJson('/api/menu-items');
+
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'data' => [['id', 'name', 'description', 'price', 'category', 'is_available', 'is_featured', 'created_at']],
+            ]);
     }
 
     public function test_response_is_paginated(): void

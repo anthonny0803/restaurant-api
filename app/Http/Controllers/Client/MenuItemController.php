@@ -14,6 +14,6 @@ class MenuItemController extends Controller
 
     public function index(ListMenuItemRequest $request): JsonResponse
     {
-        return MenuItemResource::collection($this->service->listForClient($request->category()))->response();
+        return MenuItemResource::collection($this->service->listForClient($request->category(), $request->featured()))->response();
     }
 }

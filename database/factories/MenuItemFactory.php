@@ -39,4 +39,9 @@ class MenuItemFactory extends Factory
     {
         return $this->state(['daily_stock' => null]);
     }
+
+    public function featured(): static
+    {
+        return $this->state(['is_featured' => true]);
+    }
 }

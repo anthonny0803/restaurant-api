@@ -75,6 +75,10 @@ class MenuItemResource extends Resource
                         Toggle::make('is_available')
                             ->label('Disponible')
                             ->default(true),
+
+                        Toggle::make('is_featured')
+                            ->label('Destacado')
+                            ->default(false),
                     ])
                     ->columns(2),
             ]);
@@ -113,6 +117,10 @@ class MenuItemResource extends Resource
                 IconColumn::make('is_available')
                     ->label('Disponible')
                     ->boolean(),
+
+                IconColumn::make('is_featured')
+                    ->label('Destacado')
+                    ->boolean(),
             ])
             ->filters([
                 TernaryFilter::make('is_available')
@@ -123,6 +131,11 @@ class MenuItemResource extends Resource
                 SelectFilter::make('category')
                     ->label('Categoria')
                     ->options(MenuCategory::class),
+
+                TernaryFilter::make('is_featured')
+                    ->label('Destacados')
+                    ->trueLabel('Destacados')
+                    ->falseLabel('No destacados'),
             ])
             ->recordActions([
                 Actions\EditAction::make(),
