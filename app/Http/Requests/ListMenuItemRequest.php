@@ -17,6 +17,7 @@ class ListMenuItemRequest extends FormRequest
     {
         return [
             'category' => ['sometimes', 'string', new Enum(MenuCategory::class)],
+            'featured' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -25,5 +26,12 @@ class ListMenuItemRequest extends FormRequest
         $category = $this->validated('category');
 
         return $category ? MenuCategory::from($category) : null;
+    }
+
+    public function featured(): ?bool
+    {
+        return array_key_exists('featured', $this->validated())
+            ? $this->boolean('featured')
+            : null;
     }
 }

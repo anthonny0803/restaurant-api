@@ -18,6 +18,7 @@ class MenuItem extends Model
         'price',
         'category',
         'is_available',
+        'is_featured',
         'daily_stock',
     ];
 
@@ -27,6 +28,7 @@ class MenuItem extends Model
             'price' => 'decimal:2',
             'category' => MenuCategory::class,
             'is_available' => 'boolean',
+            'is_featured' => 'boolean',
         ];
     }
 
@@ -47,6 +49,11 @@ class MenuItem extends Model
     public function scopeByCategory(Builder $query, MenuCategory $category): Builder
     {
         return $query->where('category', $category->value);
+    }
+
+    public function scopeFeatured(Builder $query): Builder
+    {
+        return $query->where('is_featured', true);
     }
 
     public function scopeInStock(Builder $query): Builder

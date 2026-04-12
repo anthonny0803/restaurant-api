@@ -18,9 +18,9 @@ class MenuItemService
         return $this->repository->paginate($category, $perPage);
     }
 
-    public function listForClient(?MenuCategory $category = null, int $perPage = 6): LengthAwarePaginator
+    public function listForClient(?MenuCategory $category = null, ?bool $featured = null, int $perPage = 6): LengthAwarePaginator
     {
-        return $this->repository->paginateForClient($category, $perPage);
+        return $this->repository->paginateForClient($category, $featured, $perPage);
     }
 
     public function find(int $id): ?MenuItem
