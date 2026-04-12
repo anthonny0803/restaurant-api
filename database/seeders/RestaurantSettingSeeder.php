@@ -16,6 +16,8 @@ class RestaurantSettingSeeder extends Seeder
             'default_reservation_duration_minutes' => 120,
             'reminder_hours_before' => 24,
             'time_slot_interval_minutes' => 30,
+            'opening_time' => '09:00',
+            'closing_time' => '23:00',
         ]);
     }
 }

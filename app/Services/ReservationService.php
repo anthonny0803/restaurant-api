@@ -11,6 +11,7 @@ use App\Notifications\ReservationConfirmedNotification;
 use App\Notifications\ReservationExpiredRefundNotification;
 use App\Models\Payment;
 use App\Models\Reservation;
+use App\Models\RestaurantSetting;
 use App\Repositories\ReservationRepository;
 use App\Repositories\RestaurantSettingRepository;
 use App\Repositories\TableRepository;
@@ -66,16 +67,18 @@ class ReservationService
 
             $settings = $this->settingRepository->get();
 
+            $endTime = Carbon::parse($dto->start_time)
+                ->addMinutes($settings->default_reservation_duration_minutes)
+                ->format('H:i:s');
+
+            $this->validateBusinessHours($dto->start_time, $endTime, $settings);
+
             $startTimeMinutes = Carbon::parse($dto->start_time)->minute;
             if ($startTimeMinutes % $settings->time_slot_interval_minutes !== 0) {
                 throw ValidationException::withMessages([
                     'start_time' => ["La hora de inicio debe estar alineada a intervalos de {$settings->time_slot_interval_minutes} minutos."],
                 ]);
             }
-
-            $endTime = Carbon::parse($dto->start_time)
-                ->addMinutes($settings->default_reservation_duration_minutes)
-                ->format('H:i:s');
 
             if ($this->reservationRepository->hasOverlappingReservation(
                 $dto->table_id, $dto->date, $dto->start_time, $endTime
@@ -240,6 +243,12 @@ class ReservationService
 
         $settings = $this->settingRepository->get();
 
+        $endTime = Carbon::parse($dto->start_time)
+            ->addMinutes($settings->default_reservation_duration_minutes)
+            ->format('H:i:s');
+
+        $this->validateBusinessHours($dto->start_time, $endTime, $settings);
+
         $startTimeMinutes = Carbon::parse($dto->start_time)->minute;
         if ($startTimeMinutes % $settings->time_slot_interval_minutes !== 0) {
             throw ValidationException::withMessages([
@@ -247,10 +256,23 @@ class ReservationService
             ]);
         }
 
-        $endTime = Carbon::parse($dto->start_time)
-            ->addMinutes($settings->default_reservation_duration_minutes)
-            ->format('H:i:s');
-
         return $this->tableRepository->findAvailable($dto->seats_requested, $dto->date, $dto->start_time, $endTime);
+    }
+
+    private function validateBusinessHours(string $startTime, string $endTime, RestaurantSetting $settings): void
+    {
+        $opening = substr($settings->opening_time, 0, 5);
+        $closing = $settings->closing_time;
+
+        if ($startTime < $opening || $endTime > $closing) {
+            throw ValidationException::withMessages([
+                'start_time' => ["La reserva debe estar dentro del horario de apertura: {$opening} - {$this->formatTime($closing)}."],
+            ]);
+        }
+    }
+
+    private function formatTime(string $time): string
+    {
+        return substr($time, 0, 5);
     }
 }

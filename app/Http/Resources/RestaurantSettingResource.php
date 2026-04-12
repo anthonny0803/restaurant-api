@@ -16,6 +16,8 @@ class RestaurantSettingResource extends JsonResource
             'default_reservation_duration_minutes'  => $this->default_reservation_duration_minutes,
             'reminder_hours_before'                 => $this->reminder_hours_before,
             'time_slot_interval_minutes'            => $this->time_slot_interval_minutes,
+            'opening_time'                          => substr($this->opening_time, 0, 5),
+            'closing_time'                          => substr($this->closing_time, 0, 5),
         ];
     }
 }
