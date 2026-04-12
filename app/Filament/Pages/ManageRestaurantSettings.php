@@ -7,6 +7,7 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\TimePicker;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Actions;
@@ -56,6 +57,22 @@ class ManageRestaurantSettings extends Page
     {
         return $schema
             ->schema([
+                Section::make('Horario de Apertura')
+                    ->schema([
+                        TimePicker::make('opening_time')
+                            ->label('Hora de apertura')
+                            ->helperText('Hora a la que el restaurante abre para reservas.')
+                            ->required()
+                            ->seconds(false),
+
+                        TimePicker::make('closing_time')
+                            ->label('Hora de cierre')
+                            ->helperText('Hora a la que el restaurante cierra. Las reservas deben iniciar antes de este horario.')
+                            ->required()
+                            ->seconds(false),
+                    ])
+                    ->columns(2),
+
                 Section::make('Deposito y Pagos')
                     ->schema([
                         TextInput::make('deposit_per_person')

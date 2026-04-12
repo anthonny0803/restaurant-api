@@ -542,4 +542,54 @@ class ReservationTest extends TestCase
             'status' => Reservation::STATUS_CONFIRMED,
         ]);
     }
+
+    // ── Business hours validation ───────────────────────────
+
+    public function test_hold_rejects_start_time_before_opening(): void
+    {
+        $this->paymentServiceMock->shouldNotReceive('createPaymentIntent');
+
+        RestaurantSetting::first()->update(['opening_time' => '12:00', 'closing_time' => '22:00']);
+
+        $response = $this->actingAs($this->clientUser())
+            ->postJson('/api/reservations', $this->holdData([
+                'start_time' => '11:00',
+            ]));
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['start_time']);
+    }
+
+    public function test_hold_rejects_reservation_ending_after_closing(): void
+    {
+        $this->paymentServiceMock->shouldNotReceive('createPaymentIntent');
+
+        RestaurantSetting::first()->update([
+            'opening_time' => '09:00',
+            'closing_time' => '22:00',
+            'default_reservation_duration_minutes' => 120,
+        ]);
+
+        $response = $this->actingAs($this->clientUser())
+            ->postJson('/api/reservations', $this->holdData([
+                'start_time' => '21:00',
+            ]));
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['start_time']);
+    }
+
+    public function test_available_tables_rejects_time_outside_business_hours(): void
+    {
+        RestaurantSetting::first()->update(['opening_time' => '12:00', 'closing_time' => '22:00']);
+
+        $response = $this->getJson('/api/reservations/available-tables?' . http_build_query([
+            'date' => now()->addDays(3)->format('Y-m-d'),
+            'start_time' => '11:00',
+            'seats_requested' => 2,
+        ]));
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['start_time']);
+    }
 }

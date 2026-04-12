@@ -11,6 +11,8 @@ readonly class UpdateRestaurantSettingDTO
         public ?int $default_reservation_duration_minutes = null,
         public ?int $reminder_hours_before = null,
         public ?int $time_slot_interval_minutes = null,
+        public ?string $opening_time = null,
+        public ?string $closing_time = null,
         private array $presentFields = [],
     ) {}
 
@@ -23,6 +25,8 @@ readonly class UpdateRestaurantSettingDTO
             default_reservation_duration_minutes: $validated['default_reservation_duration_minutes'] ?? null,
             reminder_hours_before: $validated['reminder_hours_before'] ?? null,
             time_slot_interval_minutes: $validated['time_slot_interval_minutes'] ?? null,
+            opening_time: $validated['opening_time'] ?? null,
+            closing_time: $validated['closing_time'] ?? null,
             presentFields: array_keys($validated),
         );
     }

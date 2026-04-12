@@ -13,6 +13,8 @@ class RestaurantSetting extends Model
         'default_reservation_duration_minutes',
         'reminder_hours_before',
         'time_slot_interval_minutes',
+        'opening_time',
+        'closing_time',
     ];
 
     protected function casts(): array
