@@ -19,7 +19,7 @@ class TableService
 
     public function create(StoreTableDTO $dto): Table
     {
-        return $this->repository->create(get_object_vars($dto));
+        return $this->repository->create($dto->toArray());
     }
 
     public function update(Table $table, UpdateTableDTO $dto): Table

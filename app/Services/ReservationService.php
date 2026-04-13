@@ -272,17 +272,12 @@ class ReservationService
     private function validateBusinessHours(string $startTime, string $endTime, RestaurantSetting $settings): void
     {
         $opening = substr($settings->opening_time, 0, 5);
-        $closing = $settings->closing_time;
+        $closing = substr($settings->closing_time, 0, 5);
 
-        if ($startTime < $opening || $endTime > $closing) {
+        if (substr($startTime, 0, 5) < $opening || substr($endTime, 0, 5) > $closing) {
             throw ValidationException::withMessages([
-                'start_time' => ["La reserva debe estar dentro del horario de apertura: {$opening} - {$this->formatTime($closing)}."],
+                'start_time' => ["La reserva debe estar dentro del horario de apertura: {$opening} - {$closing}."],
             ]);
         }
-    }
-
-    private function formatTime(string $time): string
-    {
-        return substr($time, 0, 5);
     }
 }
