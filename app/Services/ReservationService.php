@@ -178,20 +178,30 @@ class ReservationService
 
             $payment = $reservation->payment;
 
-            if ($payment && $payment->status === Payment::STATUS_SUCCEEDED) {
-                $snapshot = $reservation->cancellationPolicySnapshot;
-                $hoursUntilReservation = now()->diffInHours($reservationDateTime, false);
-
-                $refundAmount = $hoursUntilReservation >= $snapshot->cancellation_deadline_hours
-                    ? (float) $payment->amount
-                    : (float) $payment->amount * $snapshot->refund_percentage / 100;
-
-                $this->paymentService->refund($payment, $refundAmount);
-
-                return $refundAmount;
+            if (! $payment) {
+                return null;
             }
 
-            return null;
+            if ($payment->status === Payment::STATUS_PENDING) {
+                $this->paymentService->cancelPaymentIntent($payment);
+
+                return null;
+            }
+
+            if ($payment->status !== Payment::STATUS_SUCCEEDED) {
+                return null;
+            }
+
+            $snapshot = $reservation->cancellationPolicySnapshot;
+            $hoursUntilReservation = now()->diffInHours($reservationDateTime, false);
+
+            $refundAmount = $hoursUntilReservation >= $snapshot->cancellation_deadline_hours
+                ? (float) $payment->amount
+                : (float) $payment->amount * $snapshot->refund_percentage / 100;
+
+            $this->paymentService->refund($payment, $refundAmount);
+
+            return $refundAmount;
         });
 
         $reservation = $reservation->fresh();
