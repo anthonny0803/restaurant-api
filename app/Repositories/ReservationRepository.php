@@ -71,7 +71,7 @@ class ReservationRepository
     {
         $reservation->update(['status' => $status]);
 
-        return $reservation;
+        return $reservation->fresh();
     }
 
     public function markReminderSent(Reservation $reservation): void

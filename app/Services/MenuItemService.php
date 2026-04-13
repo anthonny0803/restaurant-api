@@ -30,7 +30,7 @@ class MenuItemService
 
     public function create(StoreMenuItemDTO $dto): MenuItem
     {
-        return $this->repository->create(get_object_vars($dto));
+        return $this->repository->create($dto->toArray());
     }
 
     public function update(MenuItem $menuItem, UpdateMenuItemDTO $dto): MenuItem

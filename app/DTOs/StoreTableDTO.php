@@ -12,4 +12,9 @@ readonly class StoreTableDTO
         public ?string $description = null,
         public bool $is_active = true,
     ) {}
+
+    public function toArray(): array
+    {
+        return get_object_vars($this);
+    }
 }

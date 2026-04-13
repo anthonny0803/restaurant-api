@@ -5,21 +5,24 @@ namespace App\Services;
 use App\DTOs\UpdatePasswordDTO;
 use App\DTOs\UpdateProfileDTO;
 use App\Models\User;
+use App\Repositories\UserRepository;
 
 class ProfileService
 {
+    public function __construct(private UserRepository $repository) {}
+
     public function get(int $userId): User
     {
-        return User::with('clientProfile')->findOrFail($userId);
+        return $this->repository->findWithProfile($userId);
     }
 
     public function update(UpdateProfileDTO $dto): User
     {
-        $user = User::with('clientProfile')->findOrFail($dto->user_id);
+        $user = $this->repository->findWithProfile($dto->user_id);
 
         $userData = $dto->userData();
         if ($userData) {
-            $user->update($userData);
+            $this->repository->update($user, $userData);
         }
 
         if ($dto->hasPhone() && $user->clientProfile) {
@@ -31,9 +34,9 @@ class ProfileService
 
     public function updatePassword(UpdatePasswordDTO $dto): User
     {
-        $user = User::findOrFail($dto->user_id);
+        $user = $this->repository->findOrFail($dto->user_id);
 
-        $user->update(['password' => $dto->password]);
+        $this->repository->update($user, ['password' => $dto->password]);
 
         return $user;
     }
