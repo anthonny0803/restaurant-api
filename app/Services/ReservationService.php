@@ -23,7 +23,7 @@ use Illuminate\Validation\ValidationException;
 
 class ReservationService
 {
-    private const HOLD_DURATION_MINUTES = 15;
+    private const HOLD_DURATION_MINUTES = 10;
 
     public function __construct(
         private ReservationRepository $reservationRepository,
@@ -36,11 +36,14 @@ class ReservationService
     {
         $expiresAt = now()->addMinutes(self::HOLD_DURATION_MINUTES);
 
-        $result = DB::transaction(function () use ($dto, $expiresAt) {
-            if ($this->reservationRepository->hasPendingReservation($dto->user_id)) {
-                throw ValidationException::withMessages([
-                    'reservation' => ['Ya tienes una reserva pendiente de pago.'],
-                ]);
+        $previousPayment = null;
+
+        $result = DB::transaction(function () use ($dto, $expiresAt, &$previousPayment) {
+            $pendingReservation = $this->reservationRepository->findPendingReservation($dto->user_id);
+
+            if ($pendingReservation) {
+                $previousPayment = $pendingReservation->payment;
+                $this->releasePendingHold($pendingReservation);
             }
 
             $table = $this->tableRepository->findOrFail($dto->table_id);
@@ -84,7 +87,7 @@ class ReservationService
                 $dto->table_id, $dto->date, $dto->start_time, $endTime
             )) {
                 throw ValidationException::withMessages([
-                    'table_id' => ['Esta mesa no esta disponible para el horario seleccionado.'],
+                    'table_id' => ['Esta mesa esta siendo gestionada por otro usuario o ya fue reservada para el horario seleccionado.'],
                 ]);
             }
 
@@ -117,6 +120,10 @@ class ReservationService
                 'client_secret' => $paymentData['client_secret'],
             ];
         });
+
+        if ($previousPayment) {
+            $this->paymentService->cancelPaymentIntent($previousPayment);
+        }
 
         ExpireReservationJob::dispatch($result['reservation']->id)
             ->delay($expiresAt);
@@ -267,6 +274,15 @@ class ReservationService
         }
 
         return $this->tableRepository->findAvailable($dto->seats_requested, $dto->date, $dto->start_time, $endTime);
+    }
+
+    private function releasePendingHold(Reservation $pendingReservation): void
+    {
+        $status = $pendingReservation->expires_at->isPast()
+            ? Reservation::STATUS_EXPIRED
+            : Reservation::STATUS_CANCELLED;
+
+        $this->reservationRepository->updateStatus($pendingReservation, $status);
     }
 
     private function validateBusinessHours(string $startTime, string $endTime, RestaurantSetting $settings): void

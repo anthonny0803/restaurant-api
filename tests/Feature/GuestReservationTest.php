@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Jobs\ExpireReservationJob;
 use App\Models\Payment;
+use App\Models\Reservation;
 use App\Models\Table;
 use App\Models\User;
 use App\Services\PaymentService;
@@ -145,21 +146,35 @@ class GuestReservationTest extends TestCase
             ->assertJsonValidationErrors(['name', 'email', 'phone', 'table_id', 'seats_requested', 'date', 'start_time']);
     }
 
-    public function test_guest_hold_rejects_if_lazy_user_has_pending_reservation(): void
+    public function test_guest_hold_cancels_previous_pending_and_creates_new(): void
     {
         Queue::fake();
 
         $this->paymentServiceMock
             ->shouldReceive('createPaymentIntent')
-            ->once()
-            ->andReturn([
-                'payment' => new Payment([
-                    'amount' => 10.00,
-                    'status' => Payment::STATUS_PENDING,
-                    'payment_gateway_id' => 'pi_test_first',
-                ]),
-                'client_secret' => 'pi_test_first_secret',
-            ]);
+            ->twice()
+            ->andReturn(
+                [
+                    'payment' => new Payment([
+                        'amount' => 10.00,
+                        'status' => Payment::STATUS_PENDING,
+                        'payment_gateway_id' => 'pi_test_first',
+                    ]),
+                    'client_secret' => 'pi_test_first_secret',
+                ],
+                [
+                    'payment' => new Payment([
+                        'amount' => 10.00,
+                        'status' => Payment::STATUS_PENDING,
+                        'payment_gateway_id' => 'pi_test_second',
+                    ]),
+                    'client_secret' => 'pi_test_second_secret',
+                ],
+            );
+
+        $this->paymentServiceMock
+            ->shouldReceive('cancelPaymentIntent')
+            ->once();
 
         $table = Table::factory()->create();
         $secondTable = Table::factory()->create();
@@ -168,12 +183,22 @@ class GuestReservationTest extends TestCase
             'table_id' => $table->id,
         ]));
 
+        $firstReservation = Reservation::first();
+
+        Payment::create([
+            'reservation_id' => $firstReservation->id,
+            'amount' => 10.00,
+            'status' => Payment::STATUS_PENDING,
+            'payment_gateway_id' => 'pi_test_first',
+        ]);
+
         $response = $this->postJson('/api/guest/reservations', $this->guestHoldData([
             'table_id' => $secondTable->id,
         ]));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['reservation']);
+        $response->assertStatus(201)
+            ->assertJsonPath('reservation.status', 'pending')
+            ->assertJsonPath('client_secret', 'pi_test_second_secret');
     }
 
     public function test_guest_hold_rejects_start_time_not_aligned_to_time_slot_interval(): void
