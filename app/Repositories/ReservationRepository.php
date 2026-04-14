@@ -39,12 +39,13 @@ class ReservationRepository
             ->exists();
     }
 
-    public function hasPendingReservation(int $userId): bool
+    public function findPendingReservation(int $userId): ?Reservation
     {
         return Reservation::pending()
             ->where('user_id', $userId)
             ->lockForUpdate()
-            ->exists();
+            ->with('payment')
+            ->first();
     }
 
     public function paginateForUser(int $userId, int $perPage = 6): LengthAwarePaginator
