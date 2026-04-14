@@ -26,3 +26,6 @@ yarn-error.log
 /.vscode
 /.zed
 .mcp.json
+/.scribe/
+/public/vendor/scribe/
+/resources/views/scribe/
