@@ -31,6 +31,7 @@ Route::prefix('auth')->group(function () {
 
 Route::get('settings/public', PublicSettingController::class);
 Route::get('menu-items', [ClientMenuItemController::class, 'index']);
+Route::get('reservations/time-slots', [ClientReservationController::class, 'timeSlots']);
 Route::get('reservations/available-tables', [ClientReservationController::class, 'availableTables']);
 Route::post('guest/reservations', [GuestReservationController::class, 'store']);
 

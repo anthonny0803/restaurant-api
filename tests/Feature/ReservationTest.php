@@ -329,7 +329,7 @@ class ReservationTest extends TestCase
                 'table_id' => $table->id,
                 'seats_requested' => 2,
                 'date' => $date,
-                'start_time' => '21:00',
+                'start_time' => '20:30',
             ]);
 
         $response->assertStatus(422)
@@ -535,7 +535,7 @@ class ReservationTest extends TestCase
                 'client_secret' => 'pi_test_slot_secret',
             ]);
 
-        RestaurantSetting::first()->update(['time_slot_interval_minutes' => 15]);
+        RestaurantSetting::first()->update(['time_slot_interval_minutes' => 30]);
 
         $table = Table::factory()->create();
 
@@ -544,7 +544,7 @@ class ReservationTest extends TestCase
                 'table_id' => $table->id,
                 'seats_requested' => 2,
                 'date' => now()->addDays(3)->format('Y-m-d'),
-                'start_time' => '20:15',
+                'start_time' => '20:30',
             ]);
 
         $response->assertStatus(201);
@@ -672,12 +672,12 @@ class ReservationTest extends TestCase
         RestaurantSetting::first()->update([
             'opening_time' => '09:00',
             'closing_time' => '22:00',
-            'default_reservation_duration_minutes' => 120,
+            'default_reservation_duration_minutes' => 60,
         ]);
 
         $response = $this->actingAs($this->clientUser())
             ->postJson('/api/reservations', $this->holdData([
-                'start_time' => '21:00',
+                'start_time' => '21:30',
             ]));
 
         $response->assertStatus(422)

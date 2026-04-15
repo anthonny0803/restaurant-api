@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\DTOs\AvailableTablesDTO;
 use App\DTOs\HoldReservationDTO;
+use App\DTOs\TimeSlotsDTO;
 use App\Jobs\ExpireReservationJob;
 use App\Notifications\ReservationCancelledNotification;
 use App\Notifications\GuestReservationConfirmedNotification;
@@ -274,6 +275,72 @@ class ReservationService
         }
 
         return $this->tableRepository->findAvailable($dto->seats_requested, $dto->date, $dto->start_time, $endTime);
+    }
+
+    public function getTimeSlots(TimeSlotsDTO $dto): array
+    {
+        $date = Carbon::parse($dto->date);
+
+        if ($date->startOfDay()->lt(today()) || $date->greaterThan(now()->addWeek())) {
+            throw ValidationException::withMessages([
+                'date' => ['Las reservas deben ser dentro de los proximos 7 dias.'],
+            ]);
+        }
+
+        $settings = $this->settingRepository->get();
+
+        $totalTables = $this->tableRepository->countForCapacity($dto->seats_requested);
+
+        if ($totalTables === 0) {
+            return [];
+        }
+
+        $reservations = $this->tableRepository->confirmedReservationsForCapacity(
+            $dto->seats_requested,
+            $dto->date
+        );
+
+        $opening = Carbon::parse($settings->opening_time);
+        $closing = Carbon::parse($settings->closing_time);
+        $interval = $settings->time_slot_interval_minutes;
+        $duration = $settings->default_reservation_duration_minutes;
+
+        $isToday = Carbon::parse($dto->date)->isToday();
+        $now = now();
+
+        $slots = [];
+        $current = $opening->copy();
+
+        while ($current->lt($closing)) {
+            $slotStart = $current->format('H:i:s');
+            $slotEnd = $current->copy()->addMinutes($duration)->format('H:i:s');
+
+            if ($slotEnd > $closing->format('H:i:s')) {
+                $current->addMinutes($interval);
+                continue;
+            }
+
+            if ($isToday && Carbon::parse($dto->date . ' ' . $slotStart)->lte($now)) {
+                $status = 'blocked';
+            } else {
+                $bookedCount = $reservations
+                    ->filter(fn ($r) => $r->start_time < $slotEnd && $r->end_time > $slotStart)
+                    ->pluck('table_id')
+                    ->unique()
+                    ->count();
+
+                $status = $bookedCount >= $totalTables ? 'blocked' : 'available';
+            }
+
+            $slots[] = [
+                'start_time' => $current->format('H:i'),
+                'status' => $status,
+            ];
+
+            $current->addMinutes($interval);
+        }
+
+        return $slots;
     }
 
     private function releasePendingHold(Reservation $pendingReservation): void
