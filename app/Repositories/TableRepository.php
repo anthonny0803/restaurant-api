@@ -41,11 +41,22 @@ class TableRepository
         $table->delete();
     }
 
+    public function countForCapacity(int $seatsRequested): int
+    {
+        return Table::matchingCapacity($seatsRequested)->count();
+    }
+
+    public function confirmedReservationsForCapacity(int $seatsRequested, string $date): \Illuminate\Support\Collection
+    {
+        return Reservation::confirmed()
+            ->where('date', $date)
+            ->whereIn('table_id', Table::matchingCapacity($seatsRequested)->select('id'))
+            ->get(['table_id', 'start_time', 'end_time']);
+    }
+
     public function findAvailable(int $seatsRequested, string $date, string $startTime, string $endTime): Collection
     {
-        return Table::where('is_active', true)
-            ->where('min_capacity', '<=', $seatsRequested)
-            ->where('max_capacity', '>=', $seatsRequested)
+        return Table::matchingCapacity($seatsRequested)
             ->whereNotIn('id', function ($query) use ($date, $startTime, $endTime) {
                 $query->select('table_id')
                     ->from('reservations')

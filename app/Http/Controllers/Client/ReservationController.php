@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Client;
 
 use App\DTOs\AvailableTablesDTO;
 use App\DTOs\HoldReservationDTO;
+use App\DTOs\TimeSlotsDTO;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AvailableTablesRequest;
 use App\Http\Requests\HoldReservationRequest;
+use App\Http\Requests\TimeSlotsRequest;
 use App\Http\Resources\ReservationResource;
 use App\Http\Resources\TableResource;
 use App\Models\Reservation;
@@ -17,6 +19,15 @@ use Illuminate\Http\Request;
 class ReservationController extends Controller
 {
     public function __construct(private ReservationService $service) {}
+
+    public function timeSlots(TimeSlotsRequest $request): JsonResponse
+    {
+        $dto = new TimeSlotsDTO(...$request->validated());
+
+        $slots = $this->service->getTimeSlots($dto);
+
+        return response()->json(['data' => $slots]);
+    }
 
     public function availableTables(AvailableTablesRequest $request): JsonResponse
     {

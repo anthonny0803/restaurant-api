@@ -110,14 +110,15 @@ class ManageRestaurantSettings extends Page
 
                 Section::make('Reservas')
                     ->schema([
-                        TextInput::make('default_reservation_duration_minutes')
+                        Select::make('default_reservation_duration_minutes')
                             ->label('Duracion de reserva')
                             ->helperText('Tiempo que se bloquea la mesa por cada reserva.')
                             ->required()
-                            ->integer()
-                            ->minValue(15)
-                            ->maxValue(480)
-                            ->suffix('minutos'),
+                            ->options([
+                                30 => '30 minutos',
+                                60 => '60 minutos',
+                                90 => '90 minutos',
+                            ]),
 
                         TextInput::make('reminder_hours_before')
                             ->label('Recordatorio previo')
@@ -133,9 +134,7 @@ class ManageRestaurantSettings extends Page
                             ->helperText('Separacion entre horarios disponibles para reservar.')
                             ->required()
                             ->options([
-                                15 => '15 minutos',
                                 30 => '30 minutos',
-                                45 => '45 minutos',
                                 60 => '60 minutos',
                             ]),
                     ])

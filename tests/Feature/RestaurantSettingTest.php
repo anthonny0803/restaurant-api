@@ -47,14 +47,14 @@ class RestaurantSettingTest extends TestCase
     {
         $response = $this->actingAs($this->adminUser())
             ->patchJson('/api/admin/settings', [
-                'time_slot_interval_minutes' => 15,
+                'time_slot_interval_minutes' => 30,
             ]);
 
         $response->assertStatus(200)
-            ->assertJsonPath('data.time_slot_interval_minutes', 15);
+            ->assertJsonPath('data.time_slot_interval_minutes', 30);
 
         $this->assertDatabaseHas('restaurant_settings', [
-            'time_slot_interval_minutes' => 15,
+            'time_slot_interval_minutes' => 30,
         ]);
     }
 
@@ -91,13 +91,30 @@ class RestaurantSettingTest extends TestCase
 
     public function test_update_rejects_invalid_time_slot_interval(): void
     {
-        $response = $this->actingAs($this->adminUser())
-            ->patchJson('/api/admin/settings', [
-                'time_slot_interval_minutes' => 20,
-            ]);
+        $admin = $this->adminUser();
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['time_slot_interval_minutes']);
+        foreach ([15, 20, 45] as $invalidValue) {
+            $this->actingAs($admin)
+                ->patchJson('/api/admin/settings', [
+                    'time_slot_interval_minutes' => $invalidValue,
+                ])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['time_slot_interval_minutes']);
+        }
+    }
+
+    public function test_update_rejects_invalid_reservation_duration(): void
+    {
+        $admin = $this->adminUser();
+
+        foreach ([15, 45, 120, 480] as $invalidValue) {
+            $this->actingAs($admin)
+                ->patchJson('/api/admin/settings', [
+                    'default_reservation_duration_minutes' => $invalidValue,
+                ])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['default_reservation_duration_minutes']);
+        }
     }
 
     public function test_update_rejects_negative_deposit(): void
@@ -131,7 +148,7 @@ class RestaurantSettingTest extends TestCase
             ->assertStatus(403);
 
         $this->actingAs($this->clientUser())
-            ->patchJson('/api/admin/settings', ['time_slot_interval_minutes' => 15])
+            ->patchJson('/api/admin/settings', ['time_slot_interval_minutes' => 30])
             ->assertStatus(403);
     }
 
@@ -140,7 +157,7 @@ class RestaurantSettingTest extends TestCase
         $this->getJson('/api/admin/settings')
             ->assertStatus(401);
 
-        $this->patchJson('/api/admin/settings', ['time_slot_interval_minutes' => 15])
+        $this->patchJson('/api/admin/settings', ['time_slot_interval_minutes' => 30])
             ->assertStatus(401);
     }
 
@@ -219,11 +236,13 @@ class RestaurantSettingTest extends TestCase
                     'opening_time',
                     'closing_time',
                     'time_slot_interval_minutes',
+                    'default_reservation_duration_minutes',
                 ],
             ])
             ->assertJsonPath('data.opening_time', '09:00')
             ->assertJsonPath('data.closing_time', '23:00')
-            ->assertJsonPath('data.time_slot_interval_minutes', 30);
+            ->assertJsonPath('data.time_slot_interval_minutes', 30)
+            ->assertJsonPath('data.default_reservation_duration_minutes', 60);
     }
 
     public function test_public_endpoint_does_not_expose_sensitive_settings(): void
