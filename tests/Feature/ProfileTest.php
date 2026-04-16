@@ -129,6 +129,39 @@ class ProfileTest extends TestCase
             ->assertJsonPath('data.phone', '699999999');
     }
 
+    public function test_update_rejects_invalid_phone_format(): void
+    {
+        $user = $this->clientWithProfile();
+
+        $response = $this->actingAs($user)
+            ->putJson('/api/profile', ['phone' => '12345']);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['phone']);
+    }
+
+    public function test_update_accepts_valid_spanish_phone(): void
+    {
+        $user = $this->clientWithProfile();
+
+        $response = $this->actingAs($user)
+            ->putJson('/api/profile', ['phone' => '712345678']);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.phone', '712345678');
+    }
+
+    public function test_update_allows_null_phone(): void
+    {
+        $user = $this->clientWithProfile();
+
+        $response = $this->actingAs($user)
+            ->putJson('/api/profile', ['phone' => null]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.phone', null);
+    }
+
     public function test_update_rejects_duplicate_email(): void
     {
         User::factory()->create(['email' => 'taken@example.com']);

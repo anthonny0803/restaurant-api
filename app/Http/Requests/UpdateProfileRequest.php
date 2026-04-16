@@ -17,7 +17,7 @@ class UpdateProfileRequest extends FormRequest
         return [
             'name'  => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'string', 'email', 'max:255', Rule::unique('users')->ignore($this->user()->id)],
-            'phone' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'phone' => ['sometimes', 'nullable', 'string', 'regex:/^[6-9]\d{8}$/'],
         ];
     }
 }
