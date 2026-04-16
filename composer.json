@@ -17,6 +17,7 @@
         "stripe/stripe-php": "^19.3"
     },
     "require-dev": {
+        "barryvdh/laravel-ide-helper": "^3.7",
         "fakerphp/faker": "^1.23",
         "laravel-lang/common": "^6.7",
         "laravel/pail": "^1.1",
