@@ -149,31 +149,54 @@ class ReservationTest extends TestCase
             ->assertJsonValidationErrors(['date']);
     }
 
-    public function test_hold_rejects_if_user_already_has_pending_reservation(): void
+    public function test_hold_cancels_previous_pending_and_creates_new(): void
     {
         Queue::fake();
 
         $this->paymentServiceMock
             ->shouldReceive('createPaymentIntent')
-            ->once()
-            ->andReturn([
-                'payment' => new Payment([
-                    'amount' => 10.00,
-                    'status' => Payment::STATUS_PENDING,
-                    'payment_gateway_id' => 'pi_test_first',
-                ]),
-                'client_secret' => 'pi_test_first_secret',
-            ]);
+            ->twice()
+            ->andReturn(
+                [
+                    'payment' => new Payment([
+                        'amount' => 10.00,
+                        'status' => Payment::STATUS_PENDING,
+                        'payment_gateway_id' => 'pi_test_first',
+                    ]),
+                    'client_secret' => 'pi_test_first_secret',
+                ],
+                [
+                    'payment' => new Payment([
+                        'amount' => 10.00,
+                        'status' => Payment::STATUS_PENDING,
+                        'payment_gateway_id' => 'pi_test_second',
+                    ]),
+                    'client_secret' => 'pi_test_second_secret',
+                ],
+            );
+
+        $this->paymentServiceMock
+            ->shouldReceive('cancelPaymentIntent')
+            ->once();
 
         $client = $this->clientUser();
-        $table = Table::factory()->create();
+        $firstTable = Table::factory()->create();
         $date = now()->addDays(3)->format('Y-m-d');
 
         $this->actingAs($client)->postJson('/api/reservations', [
-            'table_id' => $table->id,
+            'table_id' => $firstTable->id,
             'seats_requested' => 2,
             'date' => $date,
             'start_time' => '20:00',
+        ]);
+
+        $firstReservation = Reservation::where('user_id', $client->id)->first();
+
+        Payment::create([
+            'reservation_id' => $firstReservation->id,
+            'amount' => 10.00,
+            'status' => Payment::STATUS_PENDING,
+            'payment_gateway_id' => 'pi_test_first',
         ]);
 
         $secondTable = Table::factory()->create();
@@ -186,8 +209,90 @@ class ReservationTest extends TestCase
                 'start_time' => '20:00',
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['reservation']);
+        $response->assertStatus(201)
+            ->assertJsonPath('reservation.status', 'pending')
+            ->assertJsonPath('client_secret', 'pi_test_second_secret');
+
+        $this->assertDatabaseHas('reservations', [
+            'id' => $firstReservation->id,
+            'status' => Reservation::STATUS_CANCELLED,
+        ]);
+
+        $this->assertDatabaseHas('reservations', [
+            'table_id' => $secondTable->id,
+            'user_id' => $client->id,
+            'status' => Reservation::STATUS_PENDING,
+        ]);
+    }
+
+    public function test_hold_expires_previous_hold_when_already_past_expiration(): void
+    {
+        Queue::fake();
+
+        $this->paymentServiceMock
+            ->shouldReceive('createPaymentIntent')
+            ->twice()
+            ->andReturn(
+                [
+                    'payment' => new Payment([
+                        'amount' => 10.00,
+                        'status' => Payment::STATUS_PENDING,
+                        'payment_gateway_id' => 'pi_test_first',
+                    ]),
+                    'client_secret' => 'pi_test_first_secret',
+                ],
+                [
+                    'payment' => new Payment([
+                        'amount' => 10.00,
+                        'status' => Payment::STATUS_PENDING,
+                        'payment_gateway_id' => 'pi_test_second',
+                    ]),
+                    'client_secret' => 'pi_test_second_secret',
+                ],
+            );
+
+        $this->paymentServiceMock
+            ->shouldReceive('cancelPaymentIntent')
+            ->once();
+
+        $client = $this->clientUser();
+        $table = Table::factory()->create();
+        $date = now()->addDays(3)->format('Y-m-d');
+
+        $this->actingAs($client)->postJson('/api/reservations', [
+            'table_id' => $table->id,
+            'seats_requested' => 2,
+            'date' => $date,
+            'start_time' => '20:00',
+        ]);
+
+        $expiredReservation = Reservation::where('user_id', $client->id)->first();
+
+        Payment::create([
+            'reservation_id' => $expiredReservation->id,
+            'amount' => 10.00,
+            'status' => Payment::STATUS_PENDING,
+            'payment_gateway_id' => 'pi_test_first',
+        ]);
+
+        $expiredReservation->forceFill(['expires_at' => now()->subMinute()])->save();
+
+        $secondTable = Table::factory()->create();
+
+        $response = $this->actingAs($client)
+            ->postJson('/api/reservations', [
+                'table_id' => $secondTable->id,
+                'seats_requested' => 2,
+                'date' => $date,
+                'start_time' => '20:00',
+            ]);
+
+        $response->assertStatus(201);
+
+        $this->assertDatabaseHas('reservations', [
+            'id' => $expiredReservation->id,
+            'status' => Reservation::STATUS_EXPIRED,
+        ]);
     }
 
     public function test_hold_rejects_overlapping_reservation_on_same_table(): void
@@ -224,7 +329,7 @@ class ReservationTest extends TestCase
                 'table_id' => $table->id,
                 'seats_requested' => 2,
                 'date' => $date,
-                'start_time' => '21:00',
+                'start_time' => '20:30',
             ]);
 
         $response->assertStatus(422)
@@ -430,7 +535,7 @@ class ReservationTest extends TestCase
                 'client_secret' => 'pi_test_slot_secret',
             ]);
 
-        RestaurantSetting::first()->update(['time_slot_interval_minutes' => 15]);
+        RestaurantSetting::first()->update(['time_slot_interval_minutes' => 30]);
 
         $table = Table::factory()->create();
 
@@ -439,7 +544,7 @@ class ReservationTest extends TestCase
                 'table_id' => $table->id,
                 'seats_requested' => 2,
                 'date' => now()->addDays(3)->format('Y-m-d'),
-                'start_time' => '20:15',
+                'start_time' => '20:30',
             ]);
 
         $response->assertStatus(201);
@@ -541,5 +646,55 @@ class ReservationTest extends TestCase
             'id' => $reservation->id,
             'status' => Reservation::STATUS_CONFIRMED,
         ]);
+    }
+
+    // ── Business hours validation ───────────────────────────
+
+    public function test_hold_rejects_start_time_before_opening(): void
+    {
+        $this->paymentServiceMock->shouldNotReceive('createPaymentIntent');
+
+        RestaurantSetting::first()->update(['opening_time' => '12:00', 'closing_time' => '22:00']);
+
+        $response = $this->actingAs($this->clientUser())
+            ->postJson('/api/reservations', $this->holdData([
+                'start_time' => '11:00',
+            ]));
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['start_time']);
+    }
+
+    public function test_hold_rejects_reservation_ending_after_closing(): void
+    {
+        $this->paymentServiceMock->shouldNotReceive('createPaymentIntent');
+
+        RestaurantSetting::first()->update([
+            'opening_time' => '09:00',
+            'closing_time' => '22:00',
+            'default_reservation_duration_minutes' => 60,
+        ]);
+
+        $response = $this->actingAs($this->clientUser())
+            ->postJson('/api/reservations', $this->holdData([
+                'start_time' => '21:30',
+            ]));
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['start_time']);
+    }
+
+    public function test_available_tables_rejects_time_outside_business_hours(): void
+    {
+        RestaurantSetting::first()->update(['opening_time' => '12:00', 'closing_time' => '22:00']);
+
+        $response = $this->getJson('/api/reservations/available-tables?' . http_build_query([
+            'date' => now()->addDays(3)->format('Y-m-d'),
+            'start_time' => '11:00',
+            'seats_requested' => 2,
+        ]));
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['start_time']);
     }
 }

@@ -7,6 +7,7 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\TimePicker;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Actions;
@@ -56,6 +57,22 @@ class ManageRestaurantSettings extends Page
     {
         return $schema
             ->schema([
+                Section::make('Horario de Apertura')
+                    ->schema([
+                        TimePicker::make('opening_time')
+                            ->label('Hora de apertura')
+                            ->helperText('Hora a la que el restaurante abre para reservas.')
+                            ->required()
+                            ->seconds(false),
+
+                        TimePicker::make('closing_time')
+                            ->label('Hora de cierre')
+                            ->helperText('Hora a la que el restaurante cierra. Las reservas deben iniciar antes de este horario.')
+                            ->required()
+                            ->seconds(false),
+                    ])
+                    ->columns(2),
+
                 Section::make('Deposito y Pagos')
                     ->schema([
                         TextInput::make('deposit_per_person')
@@ -93,14 +110,15 @@ class ManageRestaurantSettings extends Page
 
                 Section::make('Reservas')
                     ->schema([
-                        TextInput::make('default_reservation_duration_minutes')
+                        Select::make('default_reservation_duration_minutes')
                             ->label('Duracion de reserva')
                             ->helperText('Tiempo que se bloquea la mesa por cada reserva.')
                             ->required()
-                            ->integer()
-                            ->minValue(15)
-                            ->maxValue(480)
-                            ->suffix('minutos'),
+                            ->options([
+                                30 => '30 minutos',
+                                60 => '60 minutos',
+                                90 => '90 minutos',
+                            ]),
 
                         TextInput::make('reminder_hours_before')
                             ->label('Recordatorio previo')
@@ -116,9 +134,7 @@ class ManageRestaurantSettings extends Page
                             ->helperText('Separacion entre horarios disponibles para reservar.')
                             ->required()
                             ->options([
-                                15 => '15 minutos',
                                 30 => '30 minutos',
-                                45 => '45 minutos',
                                 60 => '60 minutos',
                             ]),
                     ])

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\DTOs\AvailableTablesDTO;
 use App\DTOs\HoldReservationDTO;
+use App\DTOs\TimeSlotsDTO;
 use App\Jobs\ExpireReservationJob;
 use App\Notifications\ReservationCancelledNotification;
 use App\Notifications\GuestReservationConfirmedNotification;
@@ -11,6 +12,7 @@ use App\Notifications\ReservationConfirmedNotification;
 use App\Notifications\ReservationExpiredRefundNotification;
 use App\Models\Payment;
 use App\Models\Reservation;
+use App\Models\RestaurantSetting;
 use App\Repositories\ReservationRepository;
 use App\Repositories\RestaurantSettingRepository;
 use App\Repositories\TableRepository;
@@ -22,7 +24,7 @@ use Illuminate\Validation\ValidationException;
 
 class ReservationService
 {
-    private const HOLD_DURATION_MINUTES = 15;
+    private const HOLD_DURATION_MINUTES = 10;
 
     public function __construct(
         private ReservationRepository $reservationRepository,
@@ -35,11 +37,14 @@ class ReservationService
     {
         $expiresAt = now()->addMinutes(self::HOLD_DURATION_MINUTES);
 
-        $result = DB::transaction(function () use ($dto, $expiresAt) {
-            if ($this->reservationRepository->hasPendingReservation($dto->user_id)) {
-                throw ValidationException::withMessages([
-                    'reservation' => ['Ya tienes una reserva pendiente de pago.'],
-                ]);
+        $previousPayment = null;
+
+        $result = DB::transaction(function () use ($dto, $expiresAt, &$previousPayment) {
+            $pendingReservation = $this->reservationRepository->findPendingReservation($dto->user_id);
+
+            if ($pendingReservation) {
+                $previousPayment = $pendingReservation->payment;
+                $this->releasePendingHold($pendingReservation);
             }
 
             $table = $this->tableRepository->findOrFail($dto->table_id);
@@ -66,6 +71,12 @@ class ReservationService
 
             $settings = $this->settingRepository->get();
 
+            $endTime = Carbon::parse($dto->start_time)
+                ->addMinutes($settings->default_reservation_duration_minutes)
+                ->format('H:i:s');
+
+            $this->validateBusinessHours($dto->start_time, $endTime, $settings);
+
             $startTimeMinutes = Carbon::parse($dto->start_time)->minute;
             if ($startTimeMinutes % $settings->time_slot_interval_minutes !== 0) {
                 throw ValidationException::withMessages([
@@ -73,15 +84,11 @@ class ReservationService
                 ]);
             }
 
-            $endTime = Carbon::parse($dto->start_time)
-                ->addMinutes($settings->default_reservation_duration_minutes)
-                ->format('H:i:s');
-
             if ($this->reservationRepository->hasOverlappingReservation(
                 $dto->table_id, $dto->date, $dto->start_time, $endTime
             )) {
                 throw ValidationException::withMessages([
-                    'table_id' => ['Esta mesa no esta disponible para el horario seleccionado.'],
+                    'table_id' => ['Esta mesa esta siendo gestionada por otro usuario o ya fue reservada para el horario seleccionado.'],
                 ]);
             }
 
@@ -114,6 +121,10 @@ class ReservationService
                 'client_secret' => $paymentData['client_secret'],
             ];
         });
+
+        if ($previousPayment) {
+            $this->paymentService->cancelPaymentIntent($previousPayment);
+        }
 
         ExpireReservationJob::dispatch($result['reservation']->id)
             ->delay($expiresAt);
@@ -175,20 +186,30 @@ class ReservationService
 
             $payment = $reservation->payment;
 
-            if ($payment && $payment->status === Payment::STATUS_SUCCEEDED) {
-                $snapshot = $reservation->cancellationPolicySnapshot;
-                $hoursUntilReservation = now()->diffInHours($reservationDateTime, false);
-
-                $refundAmount = $hoursUntilReservation >= $snapshot->cancellation_deadline_hours
-                    ? (float) $payment->amount
-                    : (float) $payment->amount * $snapshot->refund_percentage / 100;
-
-                $this->paymentService->refund($payment, $refundAmount);
-
-                return $refundAmount;
+            if (! $payment) {
+                return null;
             }
 
-            return null;
+            if ($payment->status === Payment::STATUS_PENDING) {
+                $this->paymentService->cancelPaymentIntent($payment);
+
+                return null;
+            }
+
+            if ($payment->status !== Payment::STATUS_SUCCEEDED) {
+                return null;
+            }
+
+            $snapshot = $reservation->cancellationPolicySnapshot;
+            $hoursUntilReservation = now()->diffInHours($reservationDateTime, false);
+
+            $refundAmount = $hoursUntilReservation >= $snapshot->cancellation_deadline_hours
+                ? (float) $payment->amount
+                : (float) $payment->amount * $snapshot->refund_percentage / 100;
+
+            $this->paymentService->refund($payment, $refundAmount);
+
+            return $refundAmount;
         });
 
         $reservation = $reservation->fresh();
@@ -240,6 +261,12 @@ class ReservationService
 
         $settings = $this->settingRepository->get();
 
+        $endTime = Carbon::parse($dto->start_time)
+            ->addMinutes($settings->default_reservation_duration_minutes)
+            ->format('H:i:s');
+
+        $this->validateBusinessHours($dto->start_time, $endTime, $settings);
+
         $startTimeMinutes = Carbon::parse($dto->start_time)->minute;
         if ($startTimeMinutes % $settings->time_slot_interval_minutes !== 0) {
             throw ValidationException::withMessages([
@@ -247,10 +274,93 @@ class ReservationService
             ]);
         }
 
-        $endTime = Carbon::parse($dto->start_time)
-            ->addMinutes($settings->default_reservation_duration_minutes)
-            ->format('H:i:s');
-
         return $this->tableRepository->findAvailable($dto->seats_requested, $dto->date, $dto->start_time, $endTime);
+    }
+
+    public function getTimeSlots(TimeSlotsDTO $dto): array
+    {
+        $date = Carbon::parse($dto->date);
+
+        if ($date->startOfDay()->lt(today()) || $date->greaterThan(now()->addWeek())) {
+            throw ValidationException::withMessages([
+                'date' => ['Las reservas deben ser dentro de los proximos 7 dias.'],
+            ]);
+        }
+
+        $settings = $this->settingRepository->get();
+
+        $totalTables = $this->tableRepository->countForCapacity($dto->seats_requested);
+
+        if ($totalTables === 0) {
+            return [];
+        }
+
+        $reservations = $this->tableRepository->confirmedReservationsForCapacity(
+            $dto->seats_requested,
+            $dto->date
+        );
+
+        $opening = Carbon::parse($settings->opening_time);
+        $closing = Carbon::parse($settings->closing_time);
+        $interval = $settings->time_slot_interval_minutes;
+        $duration = $settings->default_reservation_duration_minutes;
+
+        $isToday = Carbon::parse($dto->date)->isToday();
+        $now = now();
+
+        $slots = [];
+        $current = $opening->copy();
+
+        while ($current->lt($closing)) {
+            $slotStart = $current->format('H:i:s');
+            $slotEnd = $current->copy()->addMinutes($duration)->format('H:i:s');
+
+            if ($slotEnd > $closing->format('H:i:s')) {
+                $current->addMinutes($interval);
+                continue;
+            }
+
+            if ($isToday && Carbon::parse($dto->date . ' ' . $slotStart)->lte($now)) {
+                $status = 'blocked';
+            } else {
+                $bookedCount = $reservations
+                    ->filter(fn ($r) => $r->start_time < $slotEnd && $r->end_time > $slotStart)
+                    ->pluck('table_id')
+                    ->unique()
+                    ->count();
+
+                $status = $bookedCount >= $totalTables ? 'blocked' : 'available';
+            }
+
+            $slots[] = [
+                'start_time' => $current->format('H:i'),
+                'status' => $status,
+            ];
+
+            $current->addMinutes($interval);
+        }
+
+        return $slots;
+    }
+
+    private function releasePendingHold(Reservation $pendingReservation): void
+    {
+        $status = $pendingReservation->expires_at->isPast()
+            ? Reservation::STATUS_EXPIRED
+            : Reservation::STATUS_CANCELLED;
+
+        $this->reservationRepository->updateStatus($pendingReservation, $status);
+    }
+
+    private function validateBusinessHours(string $startTime, string $endTime, RestaurantSetting $settings): void
+    {
+        $opening = substr($settings->opening_time, 0, 5);
+        $closing = substr($settings->closing_time, 0, 5);
+
+        if (substr($startTime, 0, 5) < $opening || substr($endTime, 0, 5) > $closing) {
+            throw ValidationException::withMessages([
+                'start_time' => ["La reserva debe estar dentro del horario de apertura: {$opening} - {$closing}."],
+            ]);
+        }
     }
 }

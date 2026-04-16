@@ -223,6 +223,42 @@ class ReservationServiceTest extends TestCase
         $this->assertEquals(Reservation::STATUS_CANCELLED, $result->status);
     }
 
+    public function test_cancel_pending_reservation_cancels_payment_intent(): void
+    {
+        /** @var Reservation&MockInterface $reservation */
+        $reservation = Mockery::mock(Reservation::class)->makePartial();
+        $reservation->status = Reservation::STATUS_PENDING;
+        $reservation->date = new \DateTime(now()->addDays(3)->format('Y-m-d'));
+        $reservation->start_time = '20:00:00';
+
+        /** @var Payment&MockInterface $payment */
+        $payment = Mockery::mock(Payment::class)->makePartial();
+        $payment->status = Payment::STATUS_PENDING;
+
+        $reservation->shouldReceive('getAttribute')->with('payment')->andReturn($payment);
+
+        $this->reservationRepository
+            ->shouldReceive('updateStatus')
+            ->with($reservation, Reservation::STATUS_CANCELLED)
+            ->once();
+
+        $this->paymentService
+            ->shouldReceive('cancelPaymentIntent')
+            ->with($payment)
+            ->once();
+
+        $this->paymentService->shouldNotReceive('refund');
+
+        /** @var Reservation&MockInterface $freshReservation */
+        $freshReservation = Mockery::mock(Reservation::class)->makePartial();
+        $freshReservation->status = Reservation::STATUS_CANCELLED;
+        $reservation->shouldReceive('fresh')->once()->andReturn($freshReservation);
+
+        $result = $this->service->cancel($reservation);
+
+        $this->assertEquals(Reservation::STATUS_CANCELLED, $result->status);
+    }
+
     public function test_cancel_rejects_non_cancellable_status(): void
     {
         /** @var Reservation&MockInterface $reservation */

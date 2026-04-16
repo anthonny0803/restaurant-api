@@ -10,6 +10,8 @@ use App\Http\Controllers\Client\GuestReservationController;
 use App\Http\Controllers\Client\MenuItemController as ClientMenuItemController;
 use App\Http\Controllers\Client\PreOrderController;
 use App\Http\Controllers\Client\ReservationController as ClientReservationController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PublicSettingController;
 use App\Http\Controllers\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -27,7 +29,9 @@ Route::prefix('auth')->group(function () {
     });
 });
 
+Route::get('settings/public', PublicSettingController::class);
 Route::get('menu-items', [ClientMenuItemController::class, 'index']);
+Route::get('reservations/time-slots', [ClientReservationController::class, 'timeSlots']);
 Route::get('reservations/available-tables', [ClientReservationController::class, 'availableTables']);
 Route::post('guest/reservations', [GuestReservationController::class, 'store']);
 
@@ -51,6 +55,10 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
 });
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('profile', [ProfileController::class, 'show']);
+    Route::put('profile', [ProfileController::class, 'update']);
+    Route::put('profile/password', [ProfileController::class, 'updatePassword']);
+
     Route::prefix('reservations')->group(function () {
         Route::post('/', [ClientReservationController::class, 'store']);
         Route::get('/', [ClientReservationController::class, 'index']);

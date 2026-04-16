@@ -23,6 +23,8 @@ class AuthTest extends TestCase
         $response = $this->postJson('/api/auth/register', [
             'name'                  => 'Test User',
             'email'                 => 'test@example.com',
+            'email_confirmation'    => 'test@example.com',
+            'phone'                 => '612345678',
             'password'              => 'Password1',
             'password_confirmation' => 'Password1',
         ]);
@@ -41,6 +43,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/auth/register', [
             'name'                  => 'Test User',
             'email'                 => 'test@example.com',
+            'email_confirmation'    => 'test@example.com',
+            'phone'                 => '612345678',
             'password'              => 'Password1',
             'password_confirmation' => 'Password1',
         ]);
@@ -55,6 +59,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/auth/register', [
             'name'                  => 'Test User',
             'email'                 => 'test@example.com',
+            'email_confirmation'    => 'test@example.com',
+            'phone'                 => '612345678',
             'password'              => 'Password1',
             'password_confirmation' => 'Password1',
         ]);
@@ -62,6 +68,7 @@ class AuthTest extends TestCase
         $user = User::where('email', 'test@example.com')->first();
 
         $this->assertNotNull($user->clientProfile);
+        $this->assertEquals('612345678', $user->clientProfile->phone);
     }
 
     public function test_register_requires_unique_email(): void
@@ -69,6 +76,8 @@ class AuthTest extends TestCase
         $data = [
             'name'                  => 'Test User',
             'email'                 => 'test@example.com',
+            'email_confirmation'    => 'test@example.com',
+            'phone'                 => '612345678',
             'password'              => 'Password1',
             'password_confirmation' => 'Password1',
         ];
@@ -85,6 +94,8 @@ class AuthTest extends TestCase
         $response = $this->postJson('/api/auth/register', [
             'name'                  => 'Test User',
             'email'                 => 'test@example.com',
+            'email_confirmation'    => 'test@example.com',
+            'phone'                 => '612345678',
             'password'              => '12345678',
             'password_confirmation' => '12345678',
         ]);
@@ -96,13 +107,73 @@ class AuthTest extends TestCase
     public function test_register_requires_password_confirmation(): void
     {
         $response = $this->postJson('/api/auth/register', [
-            'name'     => 'Test User',
-            'email'    => 'test@example.com',
-            'password' => 'Password1',
+            'name'                  => 'Test User',
+            'email'                 => 'test@example.com',
+            'email_confirmation'    => 'test@example.com',
+            'phone'                 => '612345678',
+            'password'              => 'Password1',
         ]);
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['password']);
+    }
+
+    public function test_register_requires_email_confirmation(): void
+    {
+        $response = $this->postJson('/api/auth/register', [
+            'name'                  => 'Test User',
+            'email'                 => 'test@example.com',
+            'phone'                 => '612345678',
+            'password'              => 'Password1',
+            'password_confirmation' => 'Password1',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+    }
+
+    public function test_register_rejects_mismatched_email_confirmation(): void
+    {
+        $response = $this->postJson('/api/auth/register', [
+            'name'                  => 'Test User',
+            'email'                 => 'test@example.com',
+            'email_confirmation'    => 'typo@example.com',
+            'phone'                 => '612345678',
+            'password'              => 'Password1',
+            'password_confirmation' => 'Password1',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+    }
+
+    public function test_register_requires_phone(): void
+    {
+        $response = $this->postJson('/api/auth/register', [
+            'name'                  => 'Test User',
+            'email'                 => 'test@example.com',
+            'email_confirmation'    => 'test@example.com',
+            'password'              => 'Password1',
+            'password_confirmation' => 'Password1',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['phone']);
+    }
+
+    public function test_register_rejects_invalid_phone_format(): void
+    {
+        $response = $this->postJson('/api/auth/register', [
+            'name'                  => 'Test User',
+            'email'                 => 'test@example.com',
+            'email_confirmation'    => 'test@example.com',
+            'phone'                 => '12345',
+            'password'              => 'Password1',
+            'password_confirmation' => 'Password1',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['phone']);
     }
 
     public function test_user_can_login(): void

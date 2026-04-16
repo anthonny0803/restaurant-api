@@ -14,4 +14,9 @@ readonly class StoreMenuItemDTO
         public bool $is_available = true,
         public ?int $daily_stock = null,
     ) {}
+
+    public function toArray(): array
+    {
+        return get_object_vars($this);
+    }
 }

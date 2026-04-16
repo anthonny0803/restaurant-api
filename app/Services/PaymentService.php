@@ -21,6 +21,7 @@ class PaymentService
         $intent = PaymentIntent::create([
             'amount' => $amountInCents,
             'currency' => 'eur',
+            'payment_method_types' => ['card'],
             'metadata' => [
                 'reservation_id' => $reservationId,
             ],

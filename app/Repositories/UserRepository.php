@@ -11,6 +11,11 @@ class UserRepository
         return User::findOrFail($id);
     }
 
+    public function findWithProfile(int $id): User
+    {
+        return User::with('clientProfile')->findOrFail($id);
+    }
+
     public function findByEmail(string $email): ?User
     {
         return User::where('email', $email)->first();

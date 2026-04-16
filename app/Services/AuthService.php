@@ -33,7 +33,7 @@ class AuthService
             ]);
 
             $user->assignRole('client');
-            $user->clientProfile()->create([]);
+            $user->clientProfile()->create(['phone' => $dto->phone]);
 
             return $user;
         });
