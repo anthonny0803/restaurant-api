@@ -72,10 +72,12 @@ class GuestReservationTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonStructure([
-                'reservation' => ['id', 'table', 'seats_requested', 'date', 'start_time', 'status', 'expires_at'],
-                'client_secret',
+                'data' => [
+                    'reservation' => ['id', 'table', 'seats_requested', 'date', 'start_time', 'status', 'expires_at'],
+                    'client_secret',
+                ],
             ])
-            ->assertJsonPath('reservation.status', 'pending');
+            ->assertJsonPath('data.reservation.status', 'pending');
 
         $this->assertDatabaseHas('users', [
             'email' => 'juan@example.com',
@@ -197,8 +199,8 @@ class GuestReservationTest extends TestCase
         ]));
 
         $response->assertStatus(201)
-            ->assertJsonPath('reservation.status', 'pending')
-            ->assertJsonPath('client_secret', 'pi_test_second_secret');
+            ->assertJsonPath('data.reservation.status', 'pending')
+            ->assertJsonPath('data.client_secret', 'pi_test_second_secret');
     }
 
     public function test_guest_hold_rejects_start_time_not_aligned_to_time_slot_interval(): void

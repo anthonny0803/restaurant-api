@@ -515,14 +515,22 @@
                                 "schema": {
                                     "type": "object",
                                     "properties": {
-                                        "reservation": {
-                                            "$ref": "#/components/schemas/ReservationResource"
-                                        },
-                                        "client_secret": {}
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "reservation": {
+                                                    "$ref": "#/components/schemas/ReservationResource"
+                                                },
+                                                "client_secret": {}
+                                            },
+                                            "required": [
+                                                "reservation",
+                                                "client_secret"
+                                            ]
+                                        }
                                     },
                                     "required": [
-                                        "reservation",
-                                        "client_secret"
+                                        "data"
                                     ]
                                 }
                             }
@@ -546,6 +554,13 @@
                         "in": "query",
                         "schema": {
                             "$ref": "#/components/schemas/MenuCategory"
+                        }
+                    },
+                    {
+                        "name": "featured",
+                        "in": "query",
+                        "schema": {
+                            "type": "boolean"
                         }
                     }
                 ],
@@ -589,6 +604,13 @@
                         "in": "query",
                         "schema": {
                             "$ref": "#/components/schemas/MenuCategory"
+                        }
+                    },
+                    {
+                        "name": "featured",
+                        "in": "query",
+                        "schema": {
+                            "type": "boolean"
                         }
                     }
                 ],
@@ -945,6 +967,221 @@
                 }
             }
         },
+        "/profile": {
+            "get": {
+                "operationId": "profile.show",
+                "tags": [
+                    "Profile"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`UserResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/UserResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            },
+            "put": {
+                "operationId": "profile.update",
+                "tags": [
+                    "Profile"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateProfileRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "`UserResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/UserResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/profile/password": {
+            "put": {
+                "operationId": "profile.updatePassword",
+                "tags": [
+                    "Profile"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdatePasswordRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Contrasena actualizada correctamente."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/settings/public": {
+            "get": {
+                "operationId": "publicSetting",
+                "tags": [
+                    "PublicSetting"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`PublicRestaurantSettingResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PublicRestaurantSettingResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/reservations/time-slots": {
+            "get": {
+                "operationId": "reservation.timeSlots",
+                "tags": [
+                    "Reservation"
+                ],
+                "parameters": [
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "seats_requested",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "start_time": {
+                                                        "type": "string"
+                                                    },
+                                                    "status": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "blocked",
+                                                            "available"
+                                                        ]
+                                                    }
+                                                },
+                                                "required": [
+                                                    "start_time",
+                                                    "status"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
         "/reservations/available-tables": {
             "get": {
                 "operationId": "reservation.availableTables",
@@ -1110,14 +1347,22 @@
                                 "schema": {
                                     "type": "object",
                                     "properties": {
-                                        "reservation": {
-                                            "$ref": "#/components/schemas/ReservationResource"
-                                        },
-                                        "client_secret": {}
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "reservation": {
+                                                    "$ref": "#/components/schemas/ReservationResource"
+                                                },
+                                                "client_secret": {}
+                                            },
+                                            "required": [
+                                                "reservation",
+                                                "client_secret"
+                                            ]
+                                        }
                                     },
                                     "required": [
-                                        "reservation",
-                                        "client_secret"
+                                        "data"
                                     ]
                                 }
                             }
@@ -1777,6 +2022,9 @@
                     "is_available": {
                         "type": "boolean"
                     },
+                    "is_featured": {
+                        "type": "boolean"
+                    },
                     "daily_stock": {
                         "type": [
                             "integer",
@@ -1794,9 +2042,34 @@
                     "price",
                     "category",
                     "is_available",
+                    "is_featured",
                     "created_at"
                 ],
                 "title": "MenuItemResource"
+            },
+            "PublicRestaurantSettingResource": {
+                "type": "object",
+                "properties": {
+                    "opening_time": {
+                        "type": "string"
+                    },
+                    "closing_time": {
+                        "type": "string"
+                    },
+                    "time_slot_interval_minutes": {
+                        "type": "string"
+                    },
+                    "default_reservation_duration_minutes": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "opening_time",
+                    "closing_time",
+                    "time_slot_interval_minutes",
+                    "default_reservation_duration_minutes"
+                ],
+                "title": "PublicRestaurantSettingResource"
             },
             "RegisterRequest": {
                 "type": "object",
@@ -1810,8 +2083,17 @@
                         "format": "email",
                         "maxLength": 255
                     },
+                    "phone": {
+                        "type": "string",
+                        "pattern": "^[6-9]\\d{8}$"
+                    },
                     "password": {
                         "type": "string"
+                    },
+                    "email_confirmation": {
+                        "type": "string",
+                        "format": "email",
+                        "maxLength": 255
                     },
                     "password_confirmation": {
                         "type": "string"
@@ -1820,7 +2102,9 @@
                 "required": [
                     "name",
                     "email",
+                    "phone",
                     "password",
+                    "email_confirmation",
                     "password_confirmation"
                 ],
                 "title": "RegisterRequest"
@@ -1983,6 +2267,12 @@
                     },
                     "time_slot_interval_minutes": {
                         "type": "integer"
+                    },
+                    "opening_time": {
+                        "type": "string"
+                    },
+                    "closing_time": {
+                        "type": "string"
                     }
                 },
                 "required": [
@@ -1991,7 +2281,9 @@
                     "refund_percentage",
                     "default_reservation_duration_minutes",
                     "reminder_hours_before",
-                    "time_slot_interval_minutes"
+                    "time_slot_interval_minutes",
+                    "opening_time",
+                    "closing_time"
                 ],
                 "title": "RestaurantSettingResource"
             },
@@ -2128,6 +2420,48 @@
                 },
                 "title": "UpdateMenuItemRequest"
             },
+            "UpdatePasswordRequest": {
+                "type": "object",
+                "properties": {
+                    "current_password": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    },
+                    "password_confirmation": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "current_password",
+                    "password",
+                    "password_confirmation"
+                ],
+                "title": "UpdatePasswordRequest"
+            },
+            "UpdateProfileRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "maxLength": 255
+                    },
+                    "phone": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "pattern": "^[6-9]\\d{8}$"
+                    }
+                },
+                "title": "UpdateProfileRequest"
+            },
             "UpdateRestaurantSettingRequest": {
                 "type": "object",
                 "properties": {
@@ -2147,8 +2481,11 @@
                     },
                     "default_reservation_duration_minutes": {
                         "type": "integer",
-                        "minimum": 15,
-                        "maximum": 480
+                        "enum": [
+                            "30",
+                            "60",
+                            "90"
+                        ]
                     },
                     "reminder_hours_before": {
                         "type": "integer",
@@ -2158,11 +2495,15 @@
                     "time_slot_interval_minutes": {
                         "type": "integer",
                         "enum": [
-                            "15",
                             "30",
-                            "45",
                             "60"
                         ]
+                    },
+                    "opening_time": {
+                        "type": "string"
+                    },
+                    "closing_time": {
+                        "type": "string"
                     }
                 },
                 "title": "UpdateRestaurantSettingRequest"
@@ -2210,13 +2551,21 @@
                     "email": {
                         "type": "string"
                     },
-                    "role": {}
+                    "phone": {
+                        "type": "string"
+                    },
+                    "role": {},
+                    "is_guest": {
+                        "type": "boolean"
+                    }
                 },
                 "required": [
                     "id",
                     "name",
                     "email",
-                    "role"
+                    "phone",
+                    "role",
+                    "is_guest"
                 ],
                 "title": "UserResource"
             }
