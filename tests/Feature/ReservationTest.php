@@ -73,11 +73,13 @@ class ReservationTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonStructure([
-                'reservation' => ['id', 'table', 'seats_requested', 'date', 'start_time', 'status', 'expires_at'],
-                'client_secret',
+                'data' => [
+                    'reservation' => ['id', 'table', 'seats_requested', 'date', 'start_time', 'status', 'expires_at'],
+                    'client_secret',
+                ],
             ])
-            ->assertJsonPath('reservation.status', 'pending')
-            ->assertJsonPath('client_secret', 'pi_test_123_secret');
+            ->assertJsonPath('data.reservation.status', 'pending')
+            ->assertJsonPath('data.client_secret', 'pi_test_123_secret');
 
         $this->assertDatabaseHas('reservations', [
             'table_id' => $table->id,
@@ -210,8 +212,8 @@ class ReservationTest extends TestCase
             ]);
 
         $response->assertStatus(201)
-            ->assertJsonPath('reservation.status', 'pending')
-            ->assertJsonPath('client_secret', 'pi_test_second_secret');
+            ->assertJsonPath('data.reservation.status', 'pending')
+            ->assertJsonPath('data.client_secret', 'pi_test_second_secret');
 
         $this->assertDatabaseHas('reservations', [
             'id' => $firstReservation->id,

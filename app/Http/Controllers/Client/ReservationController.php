@@ -53,8 +53,10 @@ class ReservationController extends Controller
         $result = $this->service->hold($dto);
 
         return response()->json([
-            'reservation' => new ReservationResource($result['reservation']->load('table', 'payment')),
-            'client_secret' => $result['client_secret'],
+            'data' => [
+                'reservation' => new ReservationResource($result['reservation']->load('table', 'payment')),
+                'client_secret' => $result['client_secret'],
+            ],
         ], 201);
     }
 
