@@ -33,15 +33,29 @@ class UpdateRestaurantSettingRequest extends FormRequest
                 $settings = $this->existingSettings();
                 $opening = $this->input('opening_time', $settings->opening_time);
                 $closing = $this->input('closing_time', $settings->closing_time);
+                $interval = (int) $this->input('time_slot_interval_minutes', $settings->time_slot_interval_minutes);
 
-                $openingMinutes = (int) substr($opening, 0, 2) * 60 + (int) substr($opening, 3, 2);
-                $closingMinutes = (int) substr($closing, 0, 2) * 60 + (int) substr($closing, 3, 2);
+                $openingMinutes = $this->toMinutes($opening);
+                $closingMinutes = $this->toMinutes($closing);
 
                 if ($openingMinutes >= $closingMinutes) {
                     $validator->errors()->add('opening_time', 'La hora de apertura debe ser anterior a la hora de cierre.');
                 }
+
+                if ($openingMinutes % $interval !== 0) {
+                    $validator->errors()->add('opening_time', "La hora de apertura debe estar alineada a intervalos de {$interval} minutos.");
+                }
+
+                if ($closingMinutes % $interval !== 0) {
+                    $validator->errors()->add('closing_time', "La hora de cierre debe estar alineada a intervalos de {$interval} minutos.");
+                }
             },
         ];
+    }
+
+    private function toMinutes(string $time): int
+    {
+        return (int) substr($time, 0, 2) * 60 + (int) substr($time, 3, 2);
     }
 
     private function existingSettings(): \App\Models\RestaurantSetting

@@ -224,6 +224,56 @@ class RestaurantSettingTest extends TestCase
             ->assertJsonValidationErrors(['opening_time']);
     }
 
+    public function test_update_rejects_opening_time_not_aligned_to_interval(): void
+    {
+        RestaurantSetting::first()->update(['time_slot_interval_minutes' => 60]);
+
+        $this->actingAs($this->adminUser())
+            ->patchJson('/api/admin/settings', [
+                'opening_time' => '08:30',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['opening_time']);
+    }
+
+    public function test_update_rejects_closing_time_not_aligned_to_interval(): void
+    {
+        RestaurantSetting::first()->update(['time_slot_interval_minutes' => 60]);
+
+        $this->actingAs($this->adminUser())
+            ->patchJson('/api/admin/settings', [
+                'closing_time' => '22:30',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['closing_time']);
+    }
+
+    public function test_update_rejects_interval_change_that_misaligns_existing_times(): void
+    {
+        RestaurantSetting::first()->update(['opening_time' => '08:30']);
+
+        $this->actingAs($this->adminUser())
+            ->patchJson('/api/admin/settings', [
+                'time_slot_interval_minutes' => 60,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['opening_time']);
+    }
+
+    public function test_update_accepts_aligned_times_with_60_minute_interval(): void
+    {
+        RestaurantSetting::first()->update(['time_slot_interval_minutes' => 60]);
+
+        $this->actingAs($this->adminUser())
+            ->patchJson('/api/admin/settings', [
+                'opening_time' => '08:00',
+                'closing_time' => '22:00',
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.opening_time', '08:00')
+            ->assertJsonPath('data.closing_time', '22:00');
+    }
+
     // ── Public Endpoint ─────────────────────────────────────
 
     public function test_public_endpoint_returns_schedule_settings(): void
