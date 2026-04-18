@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\Payment;
 use App\Models\Reservation;
 use App\Notifications\ReservationExpiredNotification;
 use App\Repositories\ReservationRepository;
@@ -19,22 +20,26 @@ class ExpireReservationJob implements ShouldQueue
     {
         $reservation = $reservationRepository->find($this->reservationId);
 
-        if (! $reservation || $reservation->status !== Reservation::STATUS_PENDING) {
+        if (! $reservation) {
             return;
         }
 
-        $reservationRepository->updateStatus($reservation, Reservation::STATUS_EXPIRED);
+        if ($reservation->status === Reservation::STATUS_PENDING) {
+            $reservation = $reservationRepository->updateStatus($reservation, Reservation::STATUS_EXPIRED);
 
-        $reservation = $reservation->fresh();
+            if ($reservation->user) {
+                $reservation->user->notify(new ReservationExpiredNotification($reservation));
+            }
+        }
+
+        if ($reservation->status !== Reservation::STATUS_EXPIRED) {
+            return;
+        }
 
         $payment = $reservation->payment;
 
-        if ($payment) {
+        if ($payment && $payment->status === Payment::STATUS_PENDING) {
             $paymentService->cancelPaymentIntent($payment);
-        }
-
-        if ($reservation->user) {
-            $reservation->user->notify(new ReservationExpiredNotification($reservation));
         }
     }
 }
