@@ -35,7 +35,6 @@ class ReservationRepository
             ->forTable($tableId)
             ->forDate($date)
             ->overlapping($startTime, $endTime)
-            ->lockForUpdate()
             ->exists();
     }
 
