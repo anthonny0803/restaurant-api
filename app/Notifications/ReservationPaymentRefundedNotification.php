@@ -8,15 +8,14 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class ReservationExpiredRefundNotification extends Notification implements ShouldQueue
+class ReservationPaymentRefundedNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
     public function __construct(
         private Reservation $reservation,
         private float $refundAmount,
-    ) {
-    }
+    ) {}
 
     public function via(object $notifiable): array
     {
@@ -27,18 +26,17 @@ class ReservationExpiredRefundNotification extends Notification implements Shoul
     {
         $this->reservation->loadMissing('table');
         $reservation = $this->reservation;
-        /** @var \App\Models\Table $table */
         $table = $reservation->table;
         $formatted = number_format($this->refundAmount, 2, ',', '.');
 
         return (new MailMessage())
-            ->subject('Pago reembolsado - Reserva expirada')
+            ->subject('Reembolso procesado por tu reserva')
             ->greeting("Hola, {$notifiable->name}!")
-            ->line('Tu pago llego despues de que la reserva habia expirado.')
+            ->line('Recibimos tu pago, pero no pudimos completar tu reserva porque ya no se encontraba activa al momento de procesarlo.')
             ->line("Mesa: {$table->name}")
             ->line("Fecha: {$reservation->date->format('d/m/Y')}")
             ->line("Hora: {$reservation->start_time} - {$reservation->end_time}")
-            ->line("Se ha procesado un reembolso automatico de {$formatted} EUR.")
-            ->line('Si deseas, puedes realizar una nueva reserva.');
+            ->line("Hemos procesado un reembolso completo de {$formatted} EUR de forma automatica. Deberia reflejarse en tu cuenta en los proximos dias habiles.")
+            ->line('Si deseas hacer una nueva reserva, puedes hacerlo desde la aplicacion.');
     }
 }

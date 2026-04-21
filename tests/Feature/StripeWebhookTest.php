@@ -4,8 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\Payment;
 use App\Models\Reservation;
+use App\Notifications\ReservationPaymentRefundedNotification;
+use App\Services\PaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Stripe\Event;
 use Stripe\Webhook;
 use Tests\TestCase;
@@ -159,5 +162,73 @@ class StripeWebhookTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJson(['received' => true]);
+    }
+
+    public function test_webhook_refunds_and_notifies_when_reservation_is_cancelled(): void
+    {
+        Notification::fake();
+
+        [$reservation, $payment] = $this->createReservationWithPayment(Reservation::STATUS_CANCELLED);
+
+        $payload = $this->webhookPayload($payment->payment_gateway_id);
+
+        $webhookMock = \Mockery::mock('alias:' . Webhook::class);
+        $webhookMock->shouldReceive('constructEvent')
+            ->once()
+            ->andReturn(Event::constructFrom(json_decode($payload, true)));
+
+        $paymentMock = $this->mock(PaymentService::class);
+        $paymentMock->shouldReceive('handleSucceededPayment')->once()->andReturn($payment->fresh());
+        $paymentMock->shouldReceive('refund')->once();
+
+        $response = $this->postJson('/api/stripe/webhook', [], [
+            'HTTP_STRIPE_SIGNATURE' => 't=123,v1=fake_signature',
+        ]);
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('reservations', [
+            'id' => $reservation->id,
+            'status' => Reservation::STATUS_CANCELLED,
+        ]);
+
+        Notification::assertSentTo(
+            $reservation->user,
+            ReservationPaymentRefundedNotification::class,
+        );
+    }
+
+    public function test_webhook_refunds_and_notifies_when_reservation_is_expired(): void
+    {
+        Notification::fake();
+
+        [$reservation, $payment] = $this->createReservationWithPayment(Reservation::STATUS_EXPIRED);
+
+        $payload = $this->webhookPayload($payment->payment_gateway_id);
+
+        $webhookMock = \Mockery::mock('alias:' . Webhook::class);
+        $webhookMock->shouldReceive('constructEvent')
+            ->once()
+            ->andReturn(Event::constructFrom(json_decode($payload, true)));
+
+        $paymentMock = $this->mock(PaymentService::class);
+        $paymentMock->shouldReceive('handleSucceededPayment')->once()->andReturn($payment->fresh());
+        $paymentMock->shouldReceive('refund')->once();
+
+        $response = $this->postJson('/api/stripe/webhook', [], [
+            'HTTP_STRIPE_SIGNATURE' => 't=123,v1=fake_signature',
+        ]);
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('reservations', [
+            'id' => $reservation->id,
+            'status' => Reservation::STATUS_EXPIRED,
+        ]);
+
+        Notification::assertSentTo(
+            $reservation->user,
+            ReservationPaymentRefundedNotification::class,
+        );
     }
 }

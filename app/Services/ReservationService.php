@@ -9,7 +9,7 @@ use App\Jobs\ExpireReservationJob;
 use App\Notifications\ReservationCancelledNotification;
 use App\Notifications\GuestReservationConfirmedNotification;
 use App\Notifications\ReservationConfirmedNotification;
-use App\Notifications\ReservationExpiredRefundNotification;
+use App\Notifications\ReservationPaymentRefundedNotification;
 use App\Models\Payment;
 use App\Models\Reservation;
 use App\Models\RestaurantSetting;
@@ -141,11 +141,11 @@ class ReservationService
             return $reservation;
         }
 
-        if ($reservation->status === Reservation::STATUS_EXPIRED) {
+        if ($reservation->status !== Reservation::STATUS_PENDING) {
             $this->paymentService->refund($payment, (float) $payment->amount);
 
             $reservation->user?->notify(
-                new ReservationExpiredRefundNotification($reservation, (float) $payment->amount)
+                new ReservationPaymentRefundedNotification($reservation, (float) $payment->amount)
             );
 
             return $reservation;

@@ -11,7 +11,7 @@ use App\Notifications\ReservationCancelledNotification;
 use App\Notifications\GuestReservationConfirmedNotification;
 use App\Notifications\ReservationConfirmedNotification;
 use App\Notifications\ReservationExpiredNotification;
-use App\Notifications\ReservationExpiredRefundNotification;
+use App\Notifications\ReservationPaymentRefundedNotification;
 use App\Notifications\ReservationReminderNotification;
 use App\Services\PaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -254,7 +254,7 @@ class ReservationNotificationTest extends TestCase
             'HTTP_STRIPE_SIGNATURE' => 't=123,v1=fake_signature',
         ]);
 
-        Notification::assertSentTo($client, ReservationExpiredRefundNotification::class);
+        Notification::assertSentTo($client, ReservationPaymentRefundedNotification::class);
     }
 
     // ── Expiration ────────────────────────────────────────────
