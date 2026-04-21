@@ -19,6 +19,11 @@ class TableRepository
         return Table::find($id);
     }
 
+    public function lockById(int $id): ?Table
+    {
+        return Table::where('id', $id)->lockForUpdate()->first();
+    }
+
     public function findOrFail(int $id): Table
     {
         return Table::findOrFail($id);

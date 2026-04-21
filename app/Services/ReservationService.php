@@ -47,7 +47,13 @@ class ReservationService
                 $this->releasePendingHold($pendingReservation);
             }
 
-            $table = $this->tableRepository->findOrFail($dto->table_id);
+            $table = $this->tableRepository->lockById($dto->table_id);
+
+            if (! $table) {
+                throw ValidationException::withMessages([
+                    'table_id' => ['Esta mesa no existe.'],
+                ]);
+            }
 
             if (! $table->is_active) {
                 throw ValidationException::withMessages([

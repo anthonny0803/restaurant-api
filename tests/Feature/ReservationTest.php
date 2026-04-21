@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Models\Reservation;
 use App\Models\RestaurantSetting;
 use App\Models\Table;
+use App\Repositories\TableRepository;
 use App\Services\PaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -698,5 +699,51 @@ class ReservationTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['start_time']);
+    }
+
+    // ── Concurrency / locking ────────────────────────────────
+
+    public function test_hold_returns_422_when_table_does_not_exist(): void
+    {
+        $this->paymentServiceMock->shouldNotReceive('createPaymentIntent');
+
+        $response = $this->actingAs($this->clientUser())
+            ->postJson('/api/reservations', $this->holdData(['table_id' => 99999]));
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['table_id']);
+    }
+
+    public function test_hold_acquires_pessimistic_lock_on_table_before_overlap_check(): void
+    {
+        Queue::fake();
+
+        $this->paymentServiceMock
+            ->shouldReceive('createPaymentIntent')
+            ->once()
+            ->andReturn([
+                'payment' => new Payment([
+                    'amount' => 10.00,
+                    'status' => Payment::STATUS_PENDING,
+                    'payment_gateway_id' => 'pi_test_lock',
+                ]),
+                'client_secret' => 'pi_test_lock_secret',
+            ]);
+
+        $tableRepositorySpy = Mockery::spy(TableRepository::class)->makePartial();
+        $this->app->instance(TableRepository::class, $tableRepositorySpy);
+
+        $table = Table::factory()->create();
+
+        $this->actingAs($this->clientUser())
+            ->postJson('/api/reservations', [
+                'table_id' => $table->id,
+                'seats_requested' => 2,
+                'date' => now()->addDays(3)->format('Y-m-d'),
+                'start_time' => '20:00',
+            ])
+            ->assertStatus(201);
+
+        $tableRepositorySpy->shouldHaveReceived('lockById')->with($table->id)->once();
     }
 }
