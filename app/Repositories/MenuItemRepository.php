@@ -44,6 +44,11 @@ class MenuItemRepository
         return MenuItem::findOrFail($id);
     }
 
+    public function lockById(int $id): ?MenuItem
+    {
+        return MenuItem::where('id', $id)->lockForUpdate()->first();
+    }
+
     public function create(array $data): MenuItem
     {
         return MenuItem::create($data);

@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\MenuItem;
 use App\Models\Reservation;
 use App\Models\ReservationItem;
+use App\Repositories\MenuItemRepository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Mockery;
 use Tests\TestCase;
 use Tests\Traits\CreatesUsers;
 
@@ -227,6 +229,57 @@ class PreOrderTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['quantity']);
+    }
+
+    // ── Concurrency / locking ─────────────────────────────────
+
+    public function test_store_acquires_pessimistic_lock_on_menu_item_before_decrementing_stock(): void
+    {
+        $client = $this->clientUser();
+        $reservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
+        $menuItem = MenuItem::factory()->create(['daily_stock' => 5]);
+
+        $repositorySpy = Mockery::spy(MenuItemRepository::class)->makePartial();
+        $this->app->instance(MenuItemRepository::class, $repositorySpy);
+
+        $this->actingAs($client)
+            ->postJson("/api/reservations/{$reservation->id}/pre-orders", [
+                'menu_item_id' => $menuItem->id,
+                'quantity' => 1,
+            ])
+            ->assertStatus(201);
+
+        $repositorySpy->shouldHaveReceived('lockById')->with($menuItem->id)->once();
+    }
+
+    public function test_store_rejects_second_order_when_stock_is_exhausted(): void
+    {
+        $client = $this->clientUser();
+        $otherClient = $this->clientUser();
+        $menuItem = MenuItem::factory()->create(['daily_stock' => 1]);
+
+        $firstReservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
+        $secondReservation = Reservation::factory()->confirmed()->create(['user_id' => $otherClient->id]);
+
+        $this->actingAs($client)
+            ->postJson("/api/reservations/{$firstReservation->id}/pre-orders", [
+                'menu_item_id' => $menuItem->id,
+                'quantity' => 1,
+            ])
+            ->assertStatus(201);
+
+        $this->actingAs($otherClient)
+            ->postJson("/api/reservations/{$secondReservation->id}/pre-orders", [
+                'menu_item_id' => $menuItem->id,
+                'quantity' => 1,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['quantity']);
+
+        $this->assertDatabaseHas('menu_items', [
+            'id' => $menuItem->id,
+            'daily_stock' => 0,
+        ]);
     }
 
     // ── Destroy ───────────────────────────────────────────────

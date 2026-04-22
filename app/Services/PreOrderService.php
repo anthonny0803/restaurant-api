@@ -27,14 +27,15 @@ class PreOrderService
     public function store(Reservation $reservation, StorePreOrderDTO $dto): ReservationItem
     {
         $this->ensureReservationIsConfirmed($reservation);
+        $this->ensureItemNotAlreadyOrdered($reservation, $dto->menu_item_id);
 
-        $menuItem = $this->menuItemRepository->findOrFail($dto->menu_item_id);
+        return DB::transaction(function () use ($reservation, $dto) {
+            $menuItem = $this->menuItemRepository->lockById($dto->menu_item_id);
 
-        $this->ensureMenuItemIsAvailable($menuItem);
-        $this->ensureMenuItemHasStock($menuItem, $dto->quantity);
-        $this->ensureItemNotAlreadyOrdered($reservation, $menuItem);
+            $this->ensureMenuItemExists($menuItem);
+            $this->ensureMenuItemIsAvailable($menuItem);
+            $this->ensureMenuItemHasStock($menuItem, $dto->quantity);
 
-        return DB::transaction(function () use ($reservation, $menuItem, $dto) {
             $item = $this->reservationItemRepository->create([
                 'reservation_id' => $reservation->id,
                 'menu_item_id' => $menuItem->id,
@@ -94,10 +95,19 @@ class PreOrderService
         }
     }
 
-    private function ensureItemNotAlreadyOrdered(Reservation $reservation, MenuItem $menuItem): void
+    private function ensureMenuItemExists(?MenuItem $menuItem): void
+    {
+        if ($menuItem === null) {
+            throw ValidationException::withMessages([
+                'menu_item_id' => ['El plato seleccionado no existe.'],
+            ]);
+        }
+    }
+
+    private function ensureItemNotAlreadyOrdered(Reservation $reservation, int $menuItemId): void
     {
         $exists = $reservation->reservationItems()
-            ->where('menu_item_id', $menuItem->id)
+            ->where('menu_item_id', $menuItemId)
             ->exists();
 
         if ($exists) {
