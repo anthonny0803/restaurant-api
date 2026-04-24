@@ -20,6 +20,11 @@ class ReservationRepository
         return Reservation::find($id);
     }
 
+    public function lockById(int $id): ?Reservation
+    {
+        return Reservation::where('id', $id)->lockForUpdate()->first();
+    }
+
     public function createSnapshot(Reservation $reservation, array $data): CancellationPolicySnapshot
     {
         return $reservation->cancellationPolicySnapshot()->create($data);
