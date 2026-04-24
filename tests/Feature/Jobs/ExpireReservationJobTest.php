@@ -122,6 +122,45 @@ class ExpireReservationJobTest extends TestCase
         Notification::assertNothingSent();
     }
 
+    public function test_run_on_cancelled_reservation_is_noop(): void
+    {
+        Notification::fake();
+
+        $client = $this->clientUser();
+        $reservation = Reservation::factory()->cancelled()->create(['user_id' => $client->id]);
+        Payment::factory()->for($reservation)->create(['status' => Payment::STATUS_REFUNDED]);
+
+        $this->paymentServiceMock->shouldNotReceive('cancelPaymentIntent');
+
+        $this->runJob($reservation->id);
+
+        $this->assertSame(Reservation::STATUS_CANCELLED, $reservation->fresh()->status);
+        Notification::assertNotSentTo($client, ReservationExpiredNotification::class);
+    }
+
+    public function test_acquires_pessimistic_lock_before_expiring_reservation(): void
+    {
+        Notification::fake();
+
+        $client = $this->clientUser();
+        $reservation = Reservation::factory()->pending()->create(['user_id' => $client->id]);
+
+        $this->paymentServiceMock->shouldNotReceive('cancelPaymentIntent');
+
+        \Illuminate\Support\Facades\DB::flushQueryLog();
+        \Illuminate\Support\Facades\DB::enableQueryLog();
+
+        $this->runJob($reservation->id);
+
+        $queries = collect(\Illuminate\Support\Facades\DB::getQueryLog())
+            ->map(fn ($q) => $q['query']);
+
+        $this->assertTrue(
+            $queries->contains(fn ($q) => str_contains($q, 'for update')),
+            'Expected a lockForUpdate query to be issued'
+        );
+    }
+
     public function test_run_on_pending_reservation_without_payment_only_expires_and_notifies(): void
     {
         Notification::fake();

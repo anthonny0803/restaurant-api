@@ -9,6 +9,7 @@ use App\Repositories\ReservationRepository;
 use App\Services\PaymentService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
 
 class ExpireReservationJob implements ShouldQueue
 {
@@ -18,18 +19,26 @@ class ExpireReservationJob implements ShouldQueue
 
     public function handle(ReservationRepository $reservationRepository, PaymentService $paymentService): void
     {
+        $expiredNow = DB::transaction(function () use ($reservationRepository) {
+            $reservation = $reservationRepository->lockById($this->reservationId);
+
+            if (! $reservation || $reservation->status !== Reservation::STATUS_PENDING) {
+                return false;
+            }
+
+            $reservationRepository->updateStatus($reservation, Reservation::STATUS_EXPIRED);
+
+            return true;
+        });
+
         $reservation = $reservationRepository->find($this->reservationId);
 
         if (! $reservation) {
             return;
         }
 
-        if ($reservation->status === Reservation::STATUS_PENDING) {
-            $reservation = $reservationRepository->updateStatus($reservation, Reservation::STATUS_EXPIRED);
-
-            if ($reservation->user) {
-                $reservation->user->notify(new ReservationExpiredNotification($reservation));
-            }
+        if ($expiredNow && $reservation->user) {
+            $reservation->user->notify(new ReservationExpiredNotification($reservation));
         }
 
         if ($reservation->status !== Reservation::STATUS_EXPIRED) {

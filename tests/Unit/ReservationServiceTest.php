@@ -52,20 +52,26 @@ class ReservationServiceTest extends TestCase
     {
         /** @var Reservation&MockInterface $reservation */
         $reservation = Mockery::mock(Reservation::class)->makePartial();
+        $reservation->id = 1;
         $reservation->status = Reservation::STATUS_PENDING;
 
         /** @var Payment&MockInterface $payment */
         $payment = Mockery::mock(Payment::class)->makePartial();
-        $payment->status = Payment::STATUS_SUCCEEDED;
         $payment->shouldReceive('getAttribute')
-            ->with('reservation')
-            ->andReturn($reservation);
+            ->with('reservation_id')
+            ->andReturn(1);
 
         $this->paymentService
             ->shouldReceive('handleSucceededPayment')
             ->with('pi_test_123')
             ->once()
             ->andReturn($payment);
+
+        $this->reservationRepository
+            ->shouldReceive('lockById')
+            ->with(1)
+            ->once()
+            ->andReturn($reservation);
 
         $this->reservationRepository
             ->shouldReceive('updateStatus')
@@ -75,7 +81,12 @@ class ReservationServiceTest extends TestCase
         /** @var Reservation&MockInterface $freshReservation */
         $freshReservation = Mockery::mock(Reservation::class)->makePartial();
         $freshReservation->status = Reservation::STATUS_CONFIRMED;
-        $reservation->shouldReceive('fresh')->once()->andReturn($freshReservation);
+
+        $this->reservationRepository
+            ->shouldReceive('find')
+            ->with(1)
+            ->once()
+            ->andReturn($freshReservation);
 
         $result = $this->service->confirmPayment('pi_test_123');
 
@@ -86,19 +97,32 @@ class ReservationServiceTest extends TestCase
     {
         /** @var Reservation&MockInterface $reservation */
         $reservation = Mockery::mock(Reservation::class)->makePartial();
+        $reservation->id = 1;
         $reservation->status = Reservation::STATUS_CONFIRMED;
 
         /** @var Payment&MockInterface $payment */
         $payment = Mockery::mock(Payment::class)->makePartial();
         $payment->shouldReceive('getAttribute')
-            ->with('reservation')
-            ->andReturn($reservation);
+            ->with('reservation_id')
+            ->andReturn(1);
 
         $this->paymentService
             ->shouldReceive('handleSucceededPayment')
             ->with('pi_test_123')
             ->once()
             ->andReturn($payment);
+
+        $this->reservationRepository
+            ->shouldReceive('lockById')
+            ->with(1)
+            ->once()
+            ->andReturn($reservation);
+
+        $this->reservationRepository
+            ->shouldReceive('find')
+            ->with(1)
+            ->once()
+            ->andReturn($reservation);
 
         $this->reservationRepository->shouldNotReceive('updateStatus');
         $this->paymentService->shouldNotReceive('refund');
@@ -112,20 +136,33 @@ class ReservationServiceTest extends TestCase
     {
         /** @var Reservation&MockInterface $reservation */
         $reservation = Mockery::mock(Reservation::class)->makePartial();
+        $reservation->id = 1;
         $reservation->status = Reservation::STATUS_EXPIRED;
 
         /** @var Payment&MockInterface $payment */
         $payment = Mockery::mock(Payment::class)->makePartial();
         $payment->amount = '10.00';
         $payment->shouldReceive('getAttribute')
-            ->with('reservation')
-            ->andReturn($reservation);
+            ->with('reservation_id')
+            ->andReturn(1);
 
         $this->paymentService
             ->shouldReceive('handleSucceededPayment')
             ->with('pi_test_123')
             ->once()
             ->andReturn($payment);
+
+        $this->reservationRepository
+            ->shouldReceive('lockById')
+            ->with(1)
+            ->once()
+            ->andReturn($reservation);
+
+        $this->reservationRepository
+            ->shouldReceive('find')
+            ->with(1)
+            ->once()
+            ->andReturn($reservation);
 
         $this->paymentService
             ->shouldReceive('refund')
@@ -137,6 +174,50 @@ class ReservationServiceTest extends TestCase
         $result = $this->service->confirmPayment('pi_test_123');
 
         $this->assertEquals(Reservation::STATUS_EXPIRED, $result->status);
+    }
+
+    public function test_confirm_payment_refunds_when_reservation_cancelled(): void
+    {
+        /** @var Reservation&MockInterface $reservation */
+        $reservation = Mockery::mock(Reservation::class)->makePartial();
+        $reservation->id = 1;
+        $reservation->status = Reservation::STATUS_CANCELLED;
+
+        /** @var Payment&MockInterface $payment */
+        $payment = Mockery::mock(Payment::class)->makePartial();
+        $payment->amount = '25.00';
+        $payment->shouldReceive('getAttribute')
+            ->with('reservation_id')
+            ->andReturn(1);
+
+        $this->paymentService
+            ->shouldReceive('handleSucceededPayment')
+            ->with('pi_test_123')
+            ->once()
+            ->andReturn($payment);
+
+        $this->reservationRepository
+            ->shouldReceive('lockById')
+            ->with(1)
+            ->once()
+            ->andReturn($reservation);
+
+        $this->reservationRepository
+            ->shouldReceive('find')
+            ->with(1)
+            ->once()
+            ->andReturn($reservation);
+
+        $this->paymentService
+            ->shouldReceive('refund')
+            ->with($payment, 25.00)
+            ->once();
+
+        $this->reservationRepository->shouldNotReceive('updateStatus');
+
+        $result = $this->service->confirmPayment('pi_test_123');
+
+        $this->assertEquals(Reservation::STATUS_CANCELLED, $result->status);
     }
 
     // ── cancel ───────────────────────────────────────────────

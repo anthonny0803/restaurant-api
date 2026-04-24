@@ -141,25 +141,38 @@ class ReservationService
     public function confirmPayment(string $gatewayId): Reservation
     {
         $payment = $this->paymentService->handleSucceededPayment($gatewayId);
-        $reservation = $payment->reservation;
+        $reservationId = $payment->reservation_id;
 
-        if ($reservation->status === Reservation::STATUS_CONFIRMED) {
+        $outcome = DB::transaction(function () use ($reservationId) {
+            $reservation = $this->reservationRepository->lockById($reservationId);
+
+            if ($reservation->status === Reservation::STATUS_CONFIRMED) {
+                return 'already_confirmed';
+            }
+
+            if ($reservation->status !== Reservation::STATUS_PENDING) {
+                return 'must_refund';
+            }
+
+            $this->reservationRepository->updateStatus($reservation, Reservation::STATUS_CONFIRMED);
+
+            return 'confirmed_now';
+        });
+
+        $reservation = $this->reservationRepository->find($reservationId);
+
+        if ($outcome === 'already_confirmed') {
             return $reservation;
         }
 
-        if ($reservation->status !== Reservation::STATUS_PENDING) {
+        if ($outcome === 'must_refund') {
             $this->paymentService->refund($payment, (float) $payment->amount);
-
             $reservation->user?->notify(
                 new ReservationPaymentRefundedNotification($reservation, (float) $payment->amount)
             );
 
             return $reservation;
         }
-
-        $this->reservationRepository->updateStatus($reservation, Reservation::STATUS_CONFIRMED);
-
-        $reservation = $reservation->fresh();
 
         if (! $reservation->user) {
             return $reservation;
