@@ -7,7 +7,6 @@ readonly class UpdateProfileDTO
     public function __construct(
         public int $user_id,
         public ?string $name = null,
-        public ?string $email = null,
         public ?string $phone = null,
         private array $presentFields = [],
     ) {}
@@ -17,7 +16,6 @@ readonly class UpdateProfileDTO
         return new self(
             user_id: $userId,
             name: $validated['name'] ?? null,
-            email: $validated['email'] ?? null,
             phone: $validated['phone'] ?? null,
             presentFields: array_keys($validated),
         );
@@ -26,7 +24,7 @@ readonly class UpdateProfileDTO
     public function userData(): array
     {
         return array_filter(
-            ['name' => $this->name, 'email' => $this->email],
+            ['name' => $this->name],
             fn (mixed $value, string $key) => in_array($key, $this->presentFields),
             ARRAY_FILTER_USE_BOTH,
         );
