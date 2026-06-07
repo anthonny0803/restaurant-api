@@ -88,15 +88,17 @@ class ProfileTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $user->id, 'name' => 'Nuevo Nombre']);
     }
 
-    public function test_client_can_update_email(): void
+    public function test_email_is_not_updated_when_sent_in_request(): void
     {
         $user = $this->clientWithProfile();
+        $original = $user->email;
 
-        $response = $this->actingAs($user)
-            ->putJson('/api/profile', ['email' => 'nuevo@example.com']);
+        $this->actingAs($user)
+            ->putJson('/api/profile', ['email' => 'nuevo@example.com'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.email', $original);
 
-        $response->assertStatus(200)
-            ->assertJsonPath('data.email', 'nuevo@example.com');
+        $this->assertDatabaseHas('users', ['id' => $user->id, 'email' => $original]);
     }
 
     public function test_client_can_update_phone(): void
@@ -119,13 +121,11 @@ class ProfileTest extends TestCase
         $response = $this->actingAs($user)
             ->putJson('/api/profile', [
                 'name' => 'Otro Nombre',
-                'email' => 'otro@example.com',
                 'phone' => '699999999',
             ]);
 
         $response->assertStatus(200)
             ->assertJsonPath('data.name', 'Otro Nombre')
-            ->assertJsonPath('data.email', 'otro@example.com')
             ->assertJsonPath('data.phone', '699999999');
     }
 
@@ -160,28 +160,6 @@ class ProfileTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('data.phone', null);
-    }
-
-    public function test_update_rejects_duplicate_email(): void
-    {
-        User::factory()->create(['email' => 'taken@example.com']);
-        $user = $this->clientWithProfile();
-
-        $response = $this->actingAs($user)
-            ->putJson('/api/profile', ['email' => 'taken@example.com']);
-
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
-    }
-
-    public function test_update_allows_own_email(): void
-    {
-        $user = $this->clientWithProfile();
-
-        $response = $this->actingAs($user)
-            ->putJson('/api/profile', ['email' => $user->email]);
-
-        $response->assertStatus(200);
     }
 
     public function test_admin_can_update_profile(): void
