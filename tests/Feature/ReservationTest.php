@@ -298,6 +298,81 @@ class ReservationTest extends TestCase
         ]);
     }
 
+    public function test_hold_succeeds_and_logs_error_when_cancel_previous_intent_fails(): void
+    {
+        Queue::fake();
+
+        $this->paymentServiceMock
+            ->shouldReceive('createPaymentIntent')
+            ->twice()
+            ->andReturn(
+                [
+                    'payment' => new Payment([
+                        'amount' => 10.00,
+                        'status' => Payment::STATUS_PENDING,
+                        'payment_gateway_id' => 'pi_test_first',
+                    ]),
+                    'client_secret' => 'pi_test_first_secret',
+                ],
+                [
+                    'payment' => new Payment([
+                        'amount' => 10.00,
+                        'status' => Payment::STATUS_PENDING,
+                        'payment_gateway_id' => 'pi_test_second',
+                    ]),
+                    'client_secret' => 'pi_test_second_secret',
+                ],
+            );
+
+        $this->paymentServiceMock
+            ->shouldReceive('cancelPaymentIntent')
+            ->once()
+            ->andThrow(new \Exception('Stripe unavailable'));
+
+        \Illuminate\Support\Facades\Log::shouldReceive('error')
+            ->once()
+            ->with('Failed to cancel orphaned PaymentIntent on new hold', Mockery::type('array'));
+
+        $client = $this->clientUser();
+        $firstTable = Table::factory()->create();
+        $date = now()->addDays(3)->format('Y-m-d');
+
+        $this->actingAs($client)->postJson('/api/reservations', [
+            'table_id' => $firstTable->id,
+            'seats_requested' => 2,
+            'date' => $date,
+            'start_time' => '20:00',
+        ]);
+
+        $firstReservation = Reservation::where('user_id', $client->id)->first();
+
+        Payment::create([
+            'reservation_id' => $firstReservation->id,
+            'amount' => 10.00,
+            'status' => Payment::STATUS_PENDING,
+            'payment_gateway_id' => 'pi_test_first',
+        ]);
+
+        $secondTable = Table::factory()->create();
+
+        $response = $this->actingAs($client)
+            ->postJson('/api/reservations', [
+                'table_id' => $secondTable->id,
+                'seats_requested' => 2,
+                'date' => $date,
+                'start_time' => '20:00',
+            ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.client_secret', 'pi_test_second_secret');
+
+        $this->assertDatabaseHas('reservations', [
+            'table_id' => $secondTable->id,
+            'user_id' => $client->id,
+            'status' => Reservation::STATUS_PENDING,
+        ]);
+    }
+
     public function test_hold_rejects_overlapping_reservation_on_same_table(): void
     {
         Queue::fake();
@@ -626,12 +701,16 @@ class ReservationTest extends TestCase
         $this->assertDatabaseCount('cancellation_policy_snapshots', 0);
     }
 
-    public function test_cancel_does_not_change_status_when_stripe_refund_fails(): void
+    public function test_cancel_cancels_reservation_and_logs_error_when_stripe_refund_fails(): void
     {
         $this->paymentServiceMock
             ->shouldReceive('refund')
             ->once()
             ->andThrow(new \Exception('Stripe refund error'));
+
+        \Illuminate\Support\Facades\Log::shouldReceive('error')
+            ->once()
+            ->with('Failed to refund payment on reservation cancellation', Mockery::type('array'));
 
         $client = $this->clientUser();
         $reservation = Reservation::factory()->withCancellationPolicy()->create([
@@ -643,11 +722,11 @@ class ReservationTest extends TestCase
         $response = $this->actingAs($client)
             ->postJson("/api/reservations/{$reservation->id}/cancel");
 
-        $response->assertStatus(500);
+        $response->assertStatus(200);
 
         $this->assertDatabaseHas('reservations', [
             'id' => $reservation->id,
-            'status' => Reservation::STATUS_CONFIRMED,
+            'status' => Reservation::STATUS_CANCELLED,
         ]);
     }
 

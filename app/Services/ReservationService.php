@@ -20,6 +20,7 @@ use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class ReservationService
@@ -129,7 +130,14 @@ class ReservationService
         });
 
         if ($previousPayment) {
-            $this->paymentService->cancelPaymentIntent($previousPayment);
+            try {
+                $this->paymentService->cancelPaymentIntent($previousPayment);
+            } catch (\Exception $e) {
+                Log::error('Failed to cancel orphaned PaymentIntent on new hold', [
+                    'payment_id' => $previousPayment->id,
+                    'gateway_id' => $previousPayment->payment_gateway_id,
+                ]);
+            }
         }
 
         ExpireReservationJob::dispatch($result['reservation']->id)
@@ -200,36 +208,60 @@ class ReservationService
 
         $reservationDateTime = Carbon::parse($reservation->date->format('Y-m-d') . ' ' . $reservation->start_time);
 
-        $refundAmount = DB::transaction(function () use ($reservation, $reservationDateTime) {
+        $pendingAction = DB::transaction(function () use ($reservation, $reservationDateTime) {
             $this->reservationRepository->updateStatus($reservation, Reservation::STATUS_CANCELLED);
 
             $payment = $reservation->payment;
 
             if (! $payment) {
-                return null;
+                return ['action' => 'none'];
             }
 
             if ($payment->status === Payment::STATUS_PENDING) {
-                $this->paymentService->cancelPaymentIntent($payment);
-
-                return null;
+                return ['action' => 'cancel', 'payment' => $payment];
             }
 
             if ($payment->status !== Payment::STATUS_SUCCEEDED) {
-                return null;
+                return ['action' => 'none'];
             }
 
             $snapshot = $reservation->cancellationPolicySnapshot;
             $hoursUntilReservation = now()->diffInHours($reservationDateTime, false);
 
-            $refundAmount = $hoursUntilReservation >= $snapshot->cancellation_deadline_hours
+            $amount = $hoursUntilReservation >= $snapshot->cancellation_deadline_hours
                 ? (float) $payment->amount
                 : (float) $payment->amount * $snapshot->refund_percentage / 100;
 
-            $this->paymentService->refund($payment, $refundAmount);
-
-            return $refundAmount;
+            return ['action' => 'refund', 'payment' => $payment, 'amount' => $amount];
         });
+
+        $refundAmount = null;
+
+        if ($pendingAction['action'] === 'cancel') {
+            try {
+                $this->paymentService->cancelPaymentIntent($pendingAction['payment']);
+            } catch (\Exception $e) {
+                Log::error('Failed to cancel PaymentIntent on reservation cancellation', [
+                    'reservation_id' => $reservation->id,
+                    'payment_id' => $pendingAction['payment']->id,
+                    'gateway_id' => $pendingAction['payment']->payment_gateway_id,
+                ]);
+            }
+        }
+
+        if ($pendingAction['action'] === 'refund') {
+            try {
+                $this->paymentService->refund($pendingAction['payment'], $pendingAction['amount']);
+                $refundAmount = $pendingAction['amount'];
+            } catch (\Exception $e) {
+                Log::error('Failed to refund payment on reservation cancellation', [
+                    'reservation_id' => $reservation->id,
+                    'payment_id' => $pendingAction['payment']->id,
+                    'gateway_id' => $pendingAction['payment']->payment_gateway_id,
+                    'amount' => $pendingAction['amount'],
+                ]);
+            }
+        }
 
         $reservation = $reservation->fresh();
 

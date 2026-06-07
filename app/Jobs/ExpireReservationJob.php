@@ -10,6 +10,7 @@ use App\Services\PaymentService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ExpireReservationJob implements ShouldQueue
 {
@@ -48,7 +49,15 @@ class ExpireReservationJob implements ShouldQueue
         $payment = $reservation->payment;
 
         if ($payment && $payment->status === Payment::STATUS_PENDING) {
-            $paymentService->cancelPaymentIntent($payment);
+            try {
+                $paymentService->cancelPaymentIntent($payment);
+            } catch (\Exception $e) {
+                Log::error('Failed to cancel PaymentIntent on reservation expiration', [
+                    'reservation_id' => $this->reservationId,
+                    'payment_id' => $payment->id,
+                    'gateway_id' => $payment->payment_gateway_id,
+                ]);
+            }
         }
     }
 }
