@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exceptions\PaymentNotFoundException;
 use App\Models\Payment;
 use App\Repositories\PaymentRepository;
+use Illuminate\Support\Facades\Log;
 use Stripe\PaymentIntent;
 use Stripe\Refund;
 
@@ -54,6 +55,35 @@ class PaymentService
         $this->paymentRepository->update($payment, [
             'status' => Payment::STATUS_SUCCEEDED,
             'paid_at' => now(),
+        ]);
+
+        return $payment->fresh();
+    }
+
+    public function handleFailedPayment(
+        string $gatewayId,
+        ?string $errorCode = null,
+        ?string $errorMessage = null,
+    ): Payment {
+        $payment = $this->paymentRepository->findByGatewayId($gatewayId);
+
+        if (! $payment) {
+            throw new PaymentNotFoundException($gatewayId);
+        }
+
+        if ($payment->status !== Payment::STATUS_PENDING) {
+            return $payment;
+        }
+
+        $this->paymentRepository->update($payment, [
+            'status' => Payment::STATUS_FAILED,
+        ]);
+
+        Log::warning('Stripe payment failed', [
+            'payment_id' => $payment->id,
+            'gateway_id' => $gatewayId,
+            'error_code' => $errorCode,
+            'error_message' => $errorMessage,
         ]);
 
         return $payment->fresh();

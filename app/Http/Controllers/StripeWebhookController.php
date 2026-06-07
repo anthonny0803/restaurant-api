@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\PaymentNotFoundException;
+use App\Services\PaymentService;
 use App\Services\ReservationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,7 +13,10 @@ use Stripe\Webhook;
 
 class StripeWebhookController extends Controller
 {
-    public function __construct(private ReservationService $reservationService) {}
+    public function __construct(
+        private ReservationService $reservationService,
+        private PaymentService $paymentService,
+    ) {}
 
     public function handle(Request $request): JsonResponse
     {
@@ -26,13 +30,20 @@ class StripeWebhookController extends Controller
             return response()->json(['error' => 'Firma invalida.'], 403);
         }
 
-        if ($event->type === 'payment_intent.succeeded') {
-            try {
-                $gatewayId = $event->data->object->id;
-                $this->reservationService->confirmPayment($gatewayId);
-            } catch (PaymentNotFoundException $e) {
-                Log::warning("Stripe webhook: {$e->getMessage()}");
-            }
+        $intent = $event->data->object;
+
+        try {
+            match ($event->type) {
+                'payment_intent.succeeded' => $this->reservationService->confirmPayment($intent->id),
+                'payment_intent.payment_failed' => $this->paymentService->handleFailedPayment(
+                    $intent->id,
+                    $intent->last_payment_error?->code,
+                    $intent->last_payment_error?->message,
+                ),
+                default => null,
+            };
+        } catch (PaymentNotFoundException $e) {
+            Log::warning("Stripe webhook: {$e->getMessage()}");
         }
 
         return response()->json(['received' => true]);

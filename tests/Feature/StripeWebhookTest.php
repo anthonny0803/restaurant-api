@@ -36,19 +36,28 @@ class StripeWebhookTest extends TestCase
         return [$reservation, $payment];
     }
 
-    private function webhookPayload(string $gatewayId, string $type = 'payment_intent.succeeded'): string
-    {
+    private function webhookPayload(
+        string $gatewayId,
+        string $type = 'payment_intent.succeeded',
+        ?array $lastPaymentError = null,
+    ): string {
+        $object = [
+            'id' => $gatewayId,
+            'object' => 'payment_intent',
+            'amount' => 1000,
+            'currency' => 'eur',
+            'status' => 'succeeded',
+        ];
+
+        if ($lastPaymentError !== null) {
+            $object['last_payment_error'] = $lastPaymentError;
+        }
+
         return json_encode([
             'id' => 'evt_test_' . uniqid(),
             'type' => $type,
             'data' => [
-                'object' => [
-                    'id' => $gatewayId,
-                    'object' => 'payment_intent',
-                    'amount' => 1000,
-                    'currency' => 'eur',
-                    'status' => 'succeeded',
-                ],
+                'object' => $object,
             ],
         ]);
     }
@@ -230,5 +239,160 @@ class StripeWebhookTest extends TestCase
             $reservation->user,
             ReservationPaymentRefundedNotification::class,
         );
+    }
+
+    public function test_webhook_marks_payment_as_failed_on_payment_failed(): void
+    {
+        [$reservation, $payment] = $this->createReservationWithPayment();
+
+        $payload = $this->webhookPayload(
+            $payment->payment_gateway_id,
+            'payment_intent.payment_failed',
+            ['code' => 'card_declined', 'message' => 'Your card was declined.'],
+        );
+
+        $mock = \Mockery::mock('alias:' . Webhook::class);
+        $mock->shouldReceive('constructEvent')
+            ->once()
+            ->andReturn(Event::constructFrom(json_decode($payload, true)));
+
+        $response = $this->postJson('/api/stripe/webhook', [], [
+            'HTTP_STRIPE_SIGNATURE' => 't=123,v1=fake_signature',
+        ]);
+
+        $response->assertStatus(200)->assertJson(['received' => true]);
+
+        $this->assertDatabaseHas('payments', [
+            'id' => $payment->id,
+            'status' => Payment::STATUS_FAILED,
+        ]);
+
+        $this->assertDatabaseHas('reservations', [
+            'id' => $reservation->id,
+            'status' => Reservation::STATUS_PENDING,
+        ]);
+    }
+
+    public function test_webhook_does_not_overwrite_succeeded_payment_on_payment_failed(): void
+    {
+        [$reservation, $payment] = $this->createReservationWithPayment(Reservation::STATUS_CONFIRMED);
+
+        $payment->update([
+            'status' => Payment::STATUS_SUCCEEDED,
+            'paid_at' => now(),
+        ]);
+
+        $payload = $this->webhookPayload(
+            $payment->payment_gateway_id,
+            'payment_intent.payment_failed',
+            ['code' => 'card_declined', 'message' => 'Card declined.'],
+        );
+
+        $mock = \Mockery::mock('alias:' . Webhook::class);
+        $mock->shouldReceive('constructEvent')
+            ->once()
+            ->andReturn(Event::constructFrom(json_decode($payload, true)));
+
+        $response = $this->postJson('/api/stripe/webhook', [], [
+            'HTTP_STRIPE_SIGNATURE' => 't=123,v1=fake_signature',
+        ]);
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('payments', [
+            'id' => $payment->id,
+            'status' => Payment::STATUS_SUCCEEDED,
+        ]);
+
+        $this->assertDatabaseHas('reservations', [
+            'id' => $reservation->id,
+            'status' => Reservation::STATUS_CONFIRMED,
+        ]);
+    }
+
+    public function test_webhook_is_idempotent_for_already_failed_payment(): void
+    {
+        [, $payment] = $this->createReservationWithPayment();
+
+        $payment->update(['status' => Payment::STATUS_FAILED]);
+
+        $payload = $this->webhookPayload(
+            $payment->payment_gateway_id,
+            'payment_intent.payment_failed',
+            ['code' => 'card_declined', 'message' => 'Card declined.'],
+        );
+
+        $mock = \Mockery::mock('alias:' . Webhook::class);
+        $mock->shouldReceive('constructEvent')
+            ->once()
+            ->andReturn(Event::constructFrom(json_decode($payload, true)));
+
+        $response = $this->postJson('/api/stripe/webhook', [], [
+            'HTTP_STRIPE_SIGNATURE' => 't=123,v1=fake_signature',
+        ]);
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('payments', [
+            'id' => $payment->id,
+            'status' => Payment::STATUS_FAILED,
+        ]);
+    }
+
+    public function test_webhook_logs_error_details_on_payment_failed(): void
+    {
+        [, $payment] = $this->createReservationWithPayment();
+
+        $payload = $this->webhookPayload(
+            $payment->payment_gateway_id,
+            'payment_intent.payment_failed',
+            ['code' => 'card_declined', 'message' => 'Your card was declined.'],
+        );
+
+        $mock = \Mockery::mock('alias:' . Webhook::class);
+        $mock->shouldReceive('constructEvent')
+            ->once()
+            ->andReturn(Event::constructFrom(json_decode($payload, true)));
+
+        Log::shouldReceive('warning')
+            ->once()
+            ->withArgs(function (string $message, array $context) use ($payment) {
+                return $message === 'Stripe payment failed'
+                    && $context['payment_id'] === $payment->id
+                    && $context['gateway_id'] === $payment->payment_gateway_id
+                    && $context['error_code'] === 'card_declined'
+                    && $context['error_message'] === 'Your card was declined.';
+            });
+
+        $response = $this->postJson('/api/stripe/webhook', [], [
+            'HTTP_STRIPE_SIGNATURE' => 't=123,v1=fake_signature',
+        ]);
+
+        $response->assertStatus(200);
+    }
+
+    public function test_webhook_returns_200_when_payment_not_found_on_failed(): void
+    {
+        $nonExistentGatewayId = 'pi_non_existent_456';
+        $payload = $this->webhookPayload(
+            $nonExistentGatewayId,
+            'payment_intent.payment_failed',
+            ['code' => 'card_declined', 'message' => 'Card declined.'],
+        );
+
+        $mock = \Mockery::mock('alias:' . Webhook::class);
+        $mock->shouldReceive('constructEvent')
+            ->once()
+            ->andReturn(Event::constructFrom(json_decode($payload, true)));
+
+        Log::shouldReceive('warning')
+            ->once()
+            ->withArgs(fn (string $message) => str_contains($message, $nonExistentGatewayId));
+
+        $response = $this->postJson('/api/stripe/webhook', [], [
+            'HTTP_STRIPE_SIGNATURE' => 't=123,v1=fake_signature',
+        ]);
+
+        $response->assertStatus(200)->assertJson(['received' => true]);
     }
 }
