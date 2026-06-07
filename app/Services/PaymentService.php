@@ -26,6 +26,8 @@ class PaymentService
             'metadata' => [
                 'reservation_id' => $reservationId,
             ],
+        ], [
+            'idempotency_key' => "reservation_{$reservationId}_payment_intent",
         ]);
 
         $payment = $this->paymentRepository->create([

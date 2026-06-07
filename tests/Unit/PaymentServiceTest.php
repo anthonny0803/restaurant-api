@@ -9,6 +9,8 @@ use App\Services\PaymentService;
 use Illuminate\Support\Facades\Log;
 use Mockery;
 use Mockery\MockInterface;
+use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use Tests\TestCase;
 
 class PaymentServiceTest extends TestCase
@@ -28,6 +30,48 @@ class PaymentServiceTest extends TestCase
     {
         Mockery::close();
         parent::tearDown();
+    }
+
+    // ── createPaymentIntent ──────────────────────────────────────
+
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function test_create_payment_intent_passes_idempotency_key_derived_from_reservation_id(): void
+    {
+        $reservationId = 42;
+        $expectedKey = "reservation_{$reservationId}_payment_intent";
+
+        $intent = (object) [
+            'id' => 'pi_idempotent_test',
+            'client_secret' => 'secret_xyz',
+        ];
+
+        $stripeMock = Mockery::mock('alias:Stripe\PaymentIntent');
+        $stripeMock
+            ->shouldReceive('create')
+            ->once()
+            ->withArgs(function (array $params, array $options) use ($expectedKey, $reservationId) {
+                return $options['idempotency_key'] === $expectedKey
+                    && $params['amount'] === 2550
+                    && $params['metadata']['reservation_id'] === $reservationId;
+            })
+            ->andReturn($intent);
+
+        $payment = Mockery::mock(Payment::class);
+        $this->paymentRepository
+            ->shouldReceive('create')
+            ->once()
+            ->with([
+                'reservation_id' => $reservationId,
+                'amount' => 25.50,
+                'payment_gateway_id' => 'pi_idempotent_test',
+            ])
+            ->andReturn($payment);
+
+        $result = $this->service->createPaymentIntent($reservationId, 25.50);
+
+        $this->assertSame($payment, $result['payment']);
+        $this->assertSame('secret_xyz', $result['client_secret']);
     }
 
     // ── handleFailedPayment ──────────────────────────────────────
