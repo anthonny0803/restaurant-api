@@ -351,6 +351,106 @@ class ReservationServiceTest extends TestCase
         $this->service->cancel($reservation);
     }
 
+    public function test_cancel_logs_error_when_cancel_payment_intent_fails(): void
+    {
+        /** @var Reservation&MockInterface $reservation */
+        $reservation = Mockery::mock(Reservation::class)->makePartial();
+        $reservation->id = 1;
+        $reservation->status = Reservation::STATUS_PENDING;
+        $reservation->date = new \DateTime(now()->addDays(3)->format('Y-m-d'));
+        $reservation->start_time = '20:00:00';
+
+        /** @var Payment&MockInterface $payment */
+        $payment = Mockery::mock(Payment::class)->makePartial();
+        $payment->id = 1;
+        $payment->status = Payment::STATUS_PENDING;
+        $payment->payment_gateway_id = 'pi_test_123';
+
+        $reservation->shouldReceive('getAttribute')->with('payment')->andReturn($payment);
+
+        $this->reservationRepository
+            ->shouldReceive('updateStatus')
+            ->with($reservation, Reservation::STATUS_CANCELLED)
+            ->once();
+
+        $this->paymentService
+            ->shouldReceive('cancelPaymentIntent')
+            ->with($payment)
+            ->once()
+            ->andThrow(new \Exception('Stripe unavailable'));
+
+        /** @var Reservation&MockInterface $freshReservation */
+        $freshReservation = Mockery::mock(Reservation::class)->makePartial();
+        $freshReservation->status = Reservation::STATUS_CANCELLED;
+        $reservation->shouldReceive('fresh')->once()->andReturn($freshReservation);
+
+        \Illuminate\Support\Facades\Log::shouldReceive('error')
+            ->once()
+            ->with('Failed to cancel PaymentIntent on reservation cancellation', Mockery::subset([
+                'reservation_id' => 1,
+                'payment_id' => 1,
+                'gateway_id' => 'pi_test_123',
+            ]));
+
+        $result = $this->service->cancel($reservation);
+
+        $this->assertEquals(Reservation::STATUS_CANCELLED, $result->status);
+    }
+
+    public function test_cancel_logs_error_when_refund_fails(): void
+    {
+        /** @var Reservation&MockInterface $reservation */
+        $reservation = Mockery::mock(Reservation::class)->makePartial();
+        $reservation->id = 1;
+        $reservation->status = Reservation::STATUS_CONFIRMED;
+        $reservation->date = new \DateTime(now()->addDays(3)->format('Y-m-d'));
+        $reservation->start_time = '20:00:00';
+
+        /** @var CancellationPolicySnapshot&MockInterface $snapshot */
+        $snapshot = Mockery::mock(CancellationPolicySnapshot::class)->makePartial();
+        $snapshot->cancellation_deadline_hours = 24;
+        $snapshot->refund_percentage = 50;
+
+        /** @var Payment&MockInterface $payment */
+        $payment = Mockery::mock(Payment::class)->makePartial();
+        $payment->id = 1;
+        $payment->status = Payment::STATUS_SUCCEEDED;
+        $payment->amount = '10.00';
+        $payment->payment_gateway_id = 'pi_test_456';
+
+        $reservation->shouldReceive('getAttribute')->with('payment')->andReturn($payment);
+        $reservation->shouldReceive('getAttribute')->with('cancellationPolicySnapshot')->andReturn($snapshot);
+
+        $this->reservationRepository
+            ->shouldReceive('updateStatus')
+            ->with($reservation, Reservation::STATUS_CANCELLED)
+            ->once();
+
+        $this->paymentService
+            ->shouldReceive('refund')
+            ->with($payment, 10.00)
+            ->once()
+            ->andThrow(new \Exception('Stripe unavailable'));
+
+        /** @var Reservation&MockInterface $freshReservation */
+        $freshReservation = Mockery::mock(Reservation::class)->makePartial();
+        $freshReservation->status = Reservation::STATUS_CANCELLED;
+        $reservation->shouldReceive('fresh')->once()->andReturn($freshReservation);
+
+        \Illuminate\Support\Facades\Log::shouldReceive('error')
+            ->once()
+            ->with('Failed to refund payment on reservation cancellation', Mockery::subset([
+                'reservation_id' => 1,
+                'payment_id' => 1,
+                'gateway_id' => 'pi_test_456',
+                'amount' => 10.00,
+            ]));
+
+        $result = $this->service->cancel($reservation);
+
+        $this->assertEquals(Reservation::STATUS_CANCELLED, $result->status);
+    }
+
     // ── markAsNoShow ─────────────────────────────────────────
 
     public function test_mark_as_no_show_changes_completed_to_no_show(): void

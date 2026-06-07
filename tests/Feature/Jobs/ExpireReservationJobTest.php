@@ -175,4 +175,30 @@ class ExpireReservationJobTest extends TestCase
         $this->assertSame(Reservation::STATUS_EXPIRED, $reservation->fresh()->status);
         Notification::assertSentToTimes($client, ReservationExpiredNotification::class, 1);
     }
+
+    public function test_stripe_failure_on_cancel_is_logged_and_job_completes(): void
+    {
+        Notification::fake();
+
+        $client = $this->clientUser();
+        $reservation = Reservation::factory()->pending()->create(['user_id' => $client->id]);
+        $payment = Payment::factory()->for($reservation)->create();
+
+        $this->paymentServiceMock
+            ->shouldReceive('cancelPaymentIntent')
+            ->once()
+            ->andThrow(new \Exception('Stripe unavailable'));
+
+        \Illuminate\Support\Facades\Log::shouldReceive('error')
+            ->once()
+            ->with('Failed to cancel PaymentIntent on reservation expiration', Mockery::subset([
+                'reservation_id' => $reservation->id,
+                'payment_id' => $payment->id,
+            ]));
+
+        $this->runJob($reservation->id);
+
+        $this->assertSame(Reservation::STATUS_EXPIRED, $reservation->fresh()->status);
+        $this->assertSame(Payment::STATUS_PENDING, $payment->fresh()->status);
+    }
 }
