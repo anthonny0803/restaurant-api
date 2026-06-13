@@ -16,20 +16,20 @@ class AnalyticsController extends Controller
     {
         $filter = new AnalyticsFilterDTO(...$request->validated());
 
-        return response()->json($this->service->occupancy($filter));
+        return response()->json(['data' => $this->service->occupancy($filter)]);
     }
 
     public function revenue(AnalyticsFilterRequest $request): JsonResponse
     {
         $filter = new AnalyticsFilterDTO(...$request->validated());
 
-        return response()->json($this->service->revenue($filter));
+        return response()->json(['data' => $this->service->revenue($filter)]);
     }
 
     public function topMenuItems(AnalyticsFilterRequest $request): JsonResponse
     {
         $filter = new AnalyticsFilterDTO(...$request->validated());
 
-        return response()->json($this->service->topMenuItems($filter));
+        return response()->json(['data' => $this->service->topMenuItems($filter)]);
     }
 }
