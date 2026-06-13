@@ -10,6 +10,7 @@ use App\DTOs\ResetPasswordDTO;
 use App\Models\User;
 use App\Notifications\AccountCompletionNotification;
 use App\Notifications\ResetPasswordNotification;
+use App\Repositories\ClientProfileRepository;
 use App\Repositories\UserRepository;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -20,7 +21,8 @@ use Laravel\Sanctum\PersonalAccessToken;
 class AuthService
 {
     public function __construct(
-        private UserRepository $userRepository
+        private UserRepository $userRepository,
+        private ClientProfileRepository $clientProfileRepository,
     ) {}
 
     public function register(RegisterDTO $dto): array
@@ -33,7 +35,7 @@ class AuthService
             ]);
 
             $user->assignRole('client');
-            $user->clientProfile()->create(['phone' => $dto->phone]);
+            $this->clientProfileRepository->create($user, ['phone' => $dto->phone]);
 
             return $user;
         });

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\DTOs\GuestHoldReservationDTO;
 use App\DTOs\HoldReservationDTO;
 use App\Models\User;
+use App\Repositories\ClientProfileRepository;
 use App\Repositories\UserRepository;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -14,6 +15,7 @@ class GuestReservationService
     public function __construct(
         private UserRepository $userRepository,
         private ReservationService $reservationService,
+        private ClientProfileRepository $clientProfileRepository,
     ) {}
 
     public function hold(GuestHoldReservationDTO $dto): array
@@ -52,7 +54,7 @@ class GuestReservationService
             ]);
 
             $user->assignRole('client');
-            $user->clientProfile()->create(['phone' => $dto->phone]);
+            $this->clientProfileRepository->create($user, ['phone' => $dto->phone]);
 
             return $user;
         });
