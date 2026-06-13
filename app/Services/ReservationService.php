@@ -68,28 +68,13 @@ class ReservationService
                 ]);
             }
 
-            $reservationDateTime = Carbon::parse($dto->date . ' ' . $dto->start_time);
-
-            if ($reservationDateTime->isPast() || Carbon::parse($dto->date)->greaterThan(now()->addWeek())) {
-                throw ValidationException::withMessages([
-                    'date' => ['Las reservas deben ser dentro de los proximos 7 dias.'],
-                ]);
-            }
-
             $settings = $this->settingRepository->get();
 
             $endTime = Carbon::parse($dto->start_time)
                 ->addMinutes($settings->default_reservation_duration_minutes)
                 ->format('H:i:s');
 
-            $this->validateBusinessHours($dto->start_time, $endTime, $settings);
-
-            $startTimeMinutes = Carbon::parse($dto->start_time)->minute;
-            if ($startTimeMinutes % $settings->time_slot_interval_minutes !== 0) {
-                throw ValidationException::withMessages([
-                    'start_time' => ["La hora de inicio debe estar alineada a intervalos de {$settings->time_slot_interval_minutes} minutos."],
-                ]);
-            }
+            $this->validateReservationWindow($dto->date, $dto->start_time, $endTime, $settings);
 
             if ($this->reservationRepository->hasOverlappingReservation(
                 $dto->table_id, $dto->date, $dto->start_time, $endTime
@@ -302,28 +287,13 @@ class ReservationService
 
     public function suggestAvailableTables(AvailableTablesDTO $dto): Collection
     {
-        $reservationDateTime = Carbon::parse($dto->date . ' ' . $dto->start_time);
-
-        if ($reservationDateTime->isPast() || Carbon::parse($dto->date)->greaterThan(now()->addWeek())) {
-            throw ValidationException::withMessages([
-                'date' => ['Las reservas deben ser dentro de los proximos 7 dias.'],
-            ]);
-        }
-
         $settings = $this->settingRepository->get();
 
         $endTime = Carbon::parse($dto->start_time)
             ->addMinutes($settings->default_reservation_duration_minutes)
             ->format('H:i:s');
 
-        $this->validateBusinessHours($dto->start_time, $endTime, $settings);
-
-        $startTimeMinutes = Carbon::parse($dto->start_time)->minute;
-        if ($startTimeMinutes % $settings->time_slot_interval_minutes !== 0) {
-            throw ValidationException::withMessages([
-                'start_time' => ["La hora de inicio debe estar alineada a intervalos de {$settings->time_slot_interval_minutes} minutos."],
-            ]);
-        }
+        $this->validateReservationWindow($dto->date, $dto->start_time, $endTime, $settings);
 
         return $this->tableRepository->findAvailable($dto->seats_requested, $dto->date, $dto->start_time, $endTime);
     }
@@ -401,6 +371,29 @@ class ReservationService
             : Reservation::STATUS_CANCELLED;
 
         $this->reservationRepository->updateStatus($pendingReservation, $status);
+    }
+
+    private function validateReservationWindow(
+        string $date,
+        string $startTime,
+        string $endTime,
+        RestaurantSetting $settings
+    ): void {
+        $reservationDateTime = Carbon::parse($date . ' ' . $startTime);
+
+        if ($reservationDateTime->isPast() || Carbon::parse($date)->greaterThan(now()->addWeek())) {
+            throw ValidationException::withMessages([
+                'date' => ['Las reservas deben ser dentro de los proximos 7 dias.'],
+            ]);
+        }
+
+        $this->validateBusinessHours($startTime, $endTime, $settings);
+
+        if (Carbon::parse($startTime)->minute % $settings->time_slot_interval_minutes !== 0) {
+            throw ValidationException::withMessages([
+                'start_time' => ["La hora de inicio debe estar alineada a intervalos de {$settings->time_slot_interval_minutes} minutos."],
+            ]);
+        }
     }
 
     private function validateBusinessHours(string $startTime, string $endTime, RestaurantSetting $settings): void
