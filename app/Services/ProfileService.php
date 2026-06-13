@@ -5,11 +5,15 @@ namespace App\Services;
 use App\DTOs\UpdatePasswordDTO;
 use App\DTOs\UpdateProfileDTO;
 use App\Models\User;
+use App\Repositories\ClientProfileRepository;
 use App\Repositories\UserRepository;
 
 class ProfileService
 {
-    public function __construct(private UserRepository $repository) {}
+    public function __construct(
+        private UserRepository $repository,
+        private ClientProfileRepository $clientProfileRepository,
+    ) {}
 
     public function get(int $userId): User
     {
@@ -26,7 +30,7 @@ class ProfileService
         }
 
         if ($dto->hasPhone() && $user->clientProfile) {
-            $user->clientProfile->update(['phone' => $dto->phone]);
+            $this->clientProfileRepository->update($user->clientProfile, ['phone' => $dto->phone]);
         }
 
         return $user->fresh('clientProfile');
