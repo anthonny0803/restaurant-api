@@ -2,7 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Models\Reservation;
 use App\Repositories\ReservationRepository;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -16,10 +15,6 @@ class AutoCompleteReservationsJob implements ShouldQueue
 
     public function handle(ReservationRepository $reservationRepository): void
     {
-        $reservations = $reservationRepository->findCompletable();
-
-        foreach ($reservations as $reservation) {
-            $reservationRepository->updateStatus($reservation, Reservation::STATUS_COMPLETED);
-        }
+        $reservationRepository->completeDue();
     }
 }
