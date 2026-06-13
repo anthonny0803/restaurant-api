@@ -53,6 +53,8 @@ class AuthService
             ]);
         }
 
+        $user->tokens()->delete();
+
         $token = $user->createToken('api-token')->plainTextToken;
 
         return ['user' => $user, 'token' => $token];
