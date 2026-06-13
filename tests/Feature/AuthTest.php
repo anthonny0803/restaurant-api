@@ -195,6 +195,24 @@ class AuthTest extends TestCase
             ]);
     }
 
+    public function test_login_revokes_previous_tokens(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('client');
+
+        $oldToken = $user->createToken('api-token')->plainTextToken;
+        $oldTokenId = explode('|', $oldToken)[0];
+
+        $response = $this->postJson('/api/auth/login', [
+            'email'    => $user->email,
+            'password' => 'password',
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertNull(PersonalAccessToken::find($oldTokenId));
+        $this->assertSame(1, $user->tokens()->count());
+    }
+
     public function test_login_fails_with_incorrect_credentials(): void
     {
         $user = User::factory()->create();
