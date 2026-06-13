@@ -84,15 +84,14 @@ class ReservationRepository
         $reservation->update(['reminder_sent_at' => now()]);
     }
 
-    public function findCompletable(): Collection
+    public function completeDue(): int
     {
         return Reservation::where('status', Reservation::STATUS_CONFIRMED)
             ->whereRaw(
                 'CAST(date AS timestamp) + end_time < ?',
                 [now()]
             )
-            ->with('table')
-            ->get();
+            ->update(['status' => Reservation::STATUS_COMPLETED]);
     }
 
     public function findDueForReminder(int $reminderHours): Collection
