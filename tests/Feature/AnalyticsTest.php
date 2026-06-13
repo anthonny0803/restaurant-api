@@ -85,15 +85,17 @@ class AnalyticsTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'total_reservations',
-                'by_status',
-                'average_seats_per_reservation',
-                'by_table',
-                'peak_days',
-                'peak_hours',
+                'data' => [
+                    'total_reservations',
+                    'by_status',
+                    'average_seats_per_reservation',
+                    'by_table',
+                    'peak_days',
+                    'peak_hours',
+                ],
             ]);
 
-        $data = $response->json();
+        $data = $response->json('data');
 
         $this->assertEquals(3, $data['total_reservations']);
         $this->assertEquals(1, $data['by_status']['confirmed']);
@@ -109,7 +111,7 @@ class AnalyticsTest extends TestCase
 
         $response->assertStatus(200);
 
-        $data = $response->json();
+        $data = $response->json('data');
 
         $this->assertEquals(0, $data['total_reservations']);
         $this->assertEquals(0.0, $data['average_seats_per_reservation']);
@@ -146,7 +148,7 @@ class AnalyticsTest extends TestCase
 
         $response->assertStatus(200);
 
-        $data = $response->json();
+        $data = $response->json('data');
 
         $this->assertEquals(50.00, $data['total_collected']);
         $this->assertEquals(15.00, $data['total_refunded']);
@@ -162,7 +164,7 @@ class AnalyticsTest extends TestCase
 
         $response->assertStatus(200);
 
-        $data = $response->json();
+        $data = $response->json('data');
 
         $this->assertEquals(0, $data['total_collected']);
         $this->assertEquals(0, $data['total_refunded']);
@@ -206,12 +208,14 @@ class AnalyticsTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'top_by_quantity',
-                'top_by_revenue',
-                'by_category',
+                'data' => [
+                    'top_by_quantity',
+                    'top_by_revenue',
+                    'by_category',
+                ],
             ]);
 
-        $data = $response->json();
+        $data = $response->json('data');
 
         $this->assertEquals('Tortilla', $data['top_by_quantity'][0]['menu_item']);
         $this->assertEquals(5, $data['top_by_quantity'][0]['total_quantity']);
@@ -230,7 +234,7 @@ class AnalyticsTest extends TestCase
 
         $response->assertStatus(200);
 
-        $data = $response->json();
+        $data = $response->json('data');
 
         $this->assertEmpty($data['top_by_quantity']);
         $this->assertEmpty($data['top_by_revenue']);
@@ -255,7 +259,7 @@ class AnalyticsTest extends TestCase
 
         $response->assertStatus(200);
 
-        $data = $response->json();
+        $data = $response->json('data');
 
         $this->assertEquals(1, $data['total_reservations']);
         $this->assertEquals(1, $data['by_status']['confirmed']);
@@ -282,7 +286,7 @@ class AnalyticsTest extends TestCase
 
         $response->assertStatus(200);
 
-        $data = $response->json();
+        $data = $response->json('data');
 
         $this->assertEquals(20.00, $data['total_collected']);
         $this->assertEquals(1, $data['total_payments']);
