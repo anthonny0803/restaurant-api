@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\CancellationPolicySnapshot;
 use App\Models\Reservation;
+use App\Models\Table;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
@@ -70,6 +71,14 @@ class ReservationRepository
     public function findExpired(): Collection
     {
         return Reservation::expired()->get();
+    }
+
+    public function confirmedReservationsForCapacity(int $seatsRequested, string $date): \Illuminate\Support\Collection
+    {
+        return Reservation::confirmed()
+            ->where('date', $date)
+            ->whereIn('table_id', Table::matchingCapacity($seatsRequested)->select('id'))
+            ->get(['table_id', 'start_time', 'end_time']);
     }
 
     public function updateStatus(Reservation $reservation, string $status): Reservation

@@ -316,7 +316,7 @@ class ReservationService
             return [];
         }
 
-        $reservations = $this->tableRepository->confirmedReservationsForCapacity(
+        $reservations = $this->reservationRepository->confirmedReservationsForCapacity(
             $dto->seats_requested,
             $dto->date
         );
