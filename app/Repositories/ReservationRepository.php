@@ -81,11 +81,9 @@ class ReservationRepository
             ->get(['table_id', 'start_time', 'end_time']);
     }
 
-    public function updateStatus(Reservation $reservation, string $status): Reservation
+    public function updateStatus(Reservation $reservation, string $status): void
     {
         $reservation->update(['status' => $status]);
-
-        return $reservation->fresh();
     }
 
     public function markReminderSent(Reservation $reservation): void
