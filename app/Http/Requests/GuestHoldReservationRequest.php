@@ -16,7 +16,7 @@ class GuestHoldReservationRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255'],
-            'phone' => ['required', 'string', 'max:20'],
+            'phone' => ['required', 'string', 'regex:/^[6-9]\d{8}$/'],
             'table_id' => ['required', 'integer', 'exists:tables,id'],
             'seats_requested' => ['required', 'integer', 'min:1'],
             'date' => ['required', 'date_format:Y-m-d'],

@@ -36,7 +36,7 @@ class GuestReservationTest extends TestCase
         return array_merge([
             'name' => 'Juan Perez',
             'email' => 'juan@example.com',
-            'phone' => '+34612345678',
+            'phone' => '612345678',
             'table_id' => Table::factory()->create()->id,
             'seats_requested' => 2,
             'date' => now()->addDays(3)->format('Y-m-d'),
@@ -85,7 +85,7 @@ class GuestReservationTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('client_profiles', [
-            'phone' => '+34612345678',
+            'phone' => '612345678',
         ]);
 
         $this->assertDatabaseHas('reservations', [
@@ -118,7 +118,7 @@ class GuestReservationTest extends TestCase
 
         $lazyUser = User::create(['name' => 'Juan Perez', 'email' => 'lazy@example.com']);
         $lazyUser->assignRole('client');
-        $lazyUser->clientProfile()->create(['phone' => '+34612345678']);
+        $lazyUser->clientProfile()->create(['phone' => '612345678']);
 
         $table = Table::factory()->create();
 
@@ -146,6 +146,18 @@ class GuestReservationTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['name', 'email', 'phone', 'table_id', 'seats_requested', 'date', 'start_time']);
+    }
+
+    public function test_guest_hold_rejects_invalid_phone_format(): void
+    {
+        $this->paymentServiceMock->shouldNotReceive('createPaymentIntent');
+
+        $response = $this->postJson('/api/guest/reservations', $this->guestHoldData([
+            'phone' => '+34612345678',
+        ]));
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['phone']);
     }
 
     public function test_guest_hold_cancels_previous_pending_and_creates_new(): void
