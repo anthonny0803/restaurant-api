@@ -16,11 +16,13 @@ use App\Models\RestaurantSetting;
 use App\Repositories\ReservationRepository;
 use App\Repositories\RestaurantSettingRepository;
 use App\Repositories\TableRepository;
+use App\Rules\AlignedToInterval;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 class ReservationService
@@ -389,11 +391,10 @@ class ReservationService
 
         $this->validateBusinessHours($startTime, $endTime, $settings);
 
-        if (Carbon::parse($startTime)->minute % $settings->time_slot_interval_minutes !== 0) {
-            throw ValidationException::withMessages([
-                'start_time' => ["La hora de inicio debe estar alineada a intervalos de {$settings->time_slot_interval_minutes} minutos."],
-            ]);
-        }
+        Validator::make(
+            ['start_time' => $startTime],
+            ['start_time' => [new AlignedToInterval($settings->time_slot_interval_minutes)]],
+        )->validate();
     }
 
     private function validateBusinessHours(string $startTime, string $endTime, RestaurantSetting $settings): void
