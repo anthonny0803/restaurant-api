@@ -103,7 +103,12 @@ class StripeWebhookTest extends TestCase
         ]);
 
         $response->assertStatus(403)
-            ->assertJson(['error' => 'Firma invalida.']);
+            ->assertJson([
+                'error' => [
+                    'code' => 'INVALID_SIGNATURE',
+                    'message' => 'Firma inválida.',
+                ],
+            ]);
     }
 
     public function test_webhook_is_idempotent_for_already_confirmed_reservation(): void

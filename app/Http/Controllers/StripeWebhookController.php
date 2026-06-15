@@ -27,7 +27,12 @@ class StripeWebhookController extends Controller
                 config('services.stripe.webhook_secret'),
             );
         } catch (SignatureVerificationException $e) {
-            return response()->json(['error' => 'Firma invalida.'], 403);
+            return response()->json([
+                'error' => [
+                    'code' => 'INVALID_SIGNATURE',
+                    'message' => 'Firma inválida.',
+                ],
+            ], 403);
         }
 
         $intent = $event->data->object;
