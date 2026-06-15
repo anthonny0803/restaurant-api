@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Filament\Resources\ReservationResource\Pages\ListReservations;
 use App\Models\Reservation;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -31,6 +32,25 @@ class ReservationResourceTest extends TestCase
         Livewire::actingAs($admin)
             ->test(ListReservations::class)
             ->assertCanSeeTableRecords([$reservation]);
+    }
+
+    public function test_admin_can_search_reservations_by_client_name(): void
+    {
+        $admin = $this->adminUser();
+
+        $matching = Reservation::factory()->confirmed()->create([
+            'user_id' => User::factory()->create(['name' => 'Maria Gomez']),
+        ]);
+
+        $other = Reservation::factory()->confirmed()->create([
+            'user_id' => User::factory()->create(['name' => 'Carlos Ruiz']),
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(ListReservations::class)
+            ->searchTable('Maria')
+            ->assertCanSeeTableRecords([$matching])
+            ->assertCanNotSeeTableRecords([$other]);
     }
 
     public function test_no_show_action_is_visible_for_completed_reservations(): void

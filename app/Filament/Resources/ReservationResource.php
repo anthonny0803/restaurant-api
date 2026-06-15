@@ -41,12 +41,9 @@ class ReservationResource extends Resource
             ->columns([
                 TextColumn::make('client_name')
                     ->label('Cliente')
-                    ->getStateUsing(fn (Reservation $record): string => $record->user?->name ?? $record->guest_name ?? '-')
+                    ->getStateUsing(fn (Reservation $record): string => $record->user?->name ?? '-')
                     ->searchable(query: function ($query, string $search): void {
-                        $query->where(function ($query) use ($search) {
-                            $query->whereHas('user', fn ($q) => $q->where('name', 'ilike', "%{$search}%"))
-                                ->orWhere('guest_name', 'ilike', "%{$search}%");
-                        });
+                        $query->whereHas('user', fn ($q) => $q->where('name', 'ilike', "%{$search}%"));
                     }),
 
                 TextColumn::make('table.name')
