@@ -74,6 +74,62 @@ class PaymentServiceTest extends TestCase
         $this->assertSame('secret_xyz', $result['client_secret']);
     }
 
+    // ── handleSucceededPayment ───────────────────────────────────
+
+    public function test_handle_succeeded_payment_throws_when_payment_not_found(): void
+    {
+        $this->paymentRepository
+            ->shouldReceive('findByGatewayId')
+            ->with('pi_missing')
+            ->once()
+            ->andReturn(null);
+
+        $this->expectException(PaymentNotFoundException::class);
+
+        $this->service->handleSucceededPayment('pi_missing');
+    }
+
+    public function test_handle_succeeded_payment_is_no_op_when_already_succeeded(): void
+    {
+        $payment = $this->makePaymentMock(Payment::STATUS_SUCCEEDED);
+
+        $this->paymentRepository
+            ->shouldReceive('findByGatewayId')
+            ->with('pi_succeeded')
+            ->once()
+            ->andReturn($payment);
+
+        $this->paymentRepository->shouldNotReceive('update');
+
+        $result = $this->service->handleSucceededPayment('pi_succeeded');
+
+        $this->assertSame($payment, $result);
+    }
+
+    public function test_handle_succeeded_payment_updates_status_and_paid_at_when_pending(): void
+    {
+        $payment = $this->makePaymentMock(Payment::STATUS_PENDING);
+
+        $this->paymentRepository
+            ->shouldReceive('findByGatewayId')
+            ->with('pi_pending')
+            ->once()
+            ->andReturn($payment);
+
+        $this->paymentRepository
+            ->shouldReceive('update')
+            ->once()
+            ->withArgs(function (Payment $target, array $attributes) use ($payment) {
+                return $target === $payment
+                    && $attributes['status'] === Payment::STATUS_SUCCEEDED
+                    && $attributes['paid_at'] !== null;
+            });
+
+        $result = $this->service->handleSucceededPayment('pi_pending');
+
+        $this->assertSame($payment, $result);
+    }
+
     // ── handleFailedPayment ──────────────────────────────────────
 
     public function test_handle_failed_payment_throws_when_payment_not_found(): void
@@ -222,16 +278,120 @@ class PaymentServiceTest extends TestCase
         $this->assertSame($payment, $result);
     }
 
+    // ── cancelPaymentIntent ──────────────────────────────────────
+
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function test_cancel_payment_intent_cancels_stripe_intent_and_marks_failed(): void
+    {
+        $payment = $this->makePaymentMock(Payment::STATUS_PENDING, gatewayId: 'pi_to_cancel');
+
+        $intent = Mockery::mock();
+        $intent->shouldReceive('cancel')->once();
+
+        $stripeMock = Mockery::mock('alias:Stripe\PaymentIntent');
+        $stripeMock
+            ->shouldReceive('retrieve')
+            ->with('pi_to_cancel')
+            ->once()
+            ->andReturn($intent);
+
+        $this->paymentRepository
+            ->shouldReceive('update')
+            ->with($payment, ['status' => Payment::STATUS_FAILED])
+            ->once();
+
+        $result = $this->service->cancelPaymentIntent($payment);
+
+        $this->assertSame($payment, $result);
+    }
+
+    // ── refund ───────────────────────────────────────────────────
+
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function test_refund_full_amount_marks_payment_refunded(): void
+    {
+        $payment = $this->makePaymentMock(
+            Payment::STATUS_SUCCEEDED,
+            gatewayId: 'pi_full_refund',
+            amount: 25.50,
+        );
+
+        $refundMock = Mockery::mock('alias:Stripe\Refund');
+        $refundMock->shouldReceive('create')->once();
+
+        $this->paymentRepository
+            ->shouldReceive('update')
+            ->with($payment, ['status' => Payment::STATUS_REFUNDED, 'refund_amount' => 25.50])
+            ->once();
+
+        $result = $this->service->refund($payment, 25.50);
+
+        $this->assertSame($payment, $result);
+    }
+
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function test_refund_partial_amount_marks_payment_partially_refunded(): void
+    {
+        $payment = $this->makePaymentMock(
+            Payment::STATUS_SUCCEEDED,
+            gatewayId: 'pi_partial_refund',
+            amount: 25.50,
+        );
+
+        $refundMock = Mockery::mock('alias:Stripe\Refund');
+        $refundMock->shouldReceive('create')->once();
+
+        $this->paymentRepository
+            ->shouldReceive('update')
+            ->with($payment, ['status' => Payment::STATUS_PARTIALLY_REFUNDED, 'refund_amount' => 10.00])
+            ->once();
+
+        $result = $this->service->refund($payment, 10.00);
+
+        $this->assertSame($payment, $result);
+    }
+
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function test_refund_converts_amount_to_cents_for_stripe(): void
+    {
+        $payment = $this->makePaymentMock(
+            Payment::STATUS_SUCCEEDED,
+            gatewayId: 'pi_cents',
+            amount: 25.50,
+        );
+
+        $refundMock = Mockery::mock('alias:Stripe\Refund');
+        $refundMock
+            ->shouldReceive('create')
+            ->once()
+            ->withArgs(function (array $params) {
+                return $params['payment_intent'] === 'pi_cents'
+                    && $params['amount'] === 1099;
+            });
+
+        $this->paymentRepository->shouldReceive('update')->once();
+
+        $result = $this->service->refund($payment, 10.99);
+
+        $this->assertSame($payment, $result);
+    }
+
     private function makePaymentMock(
         string $status,
         int $paymentId = 1,
         string $gatewayId = 'pi_test',
+        float $amount = 25.50,
     ): Payment&MockInterface {
         /** @var Payment&MockInterface $payment */
         $payment = Mockery::mock(Payment::class)->makePartial();
         $payment->shouldReceive('getAttribute')->with('status')->andReturn($status);
         $payment->shouldReceive('getAttribute')->with('id')->andReturn($paymentId);
         $payment->shouldReceive('getAttribute')->with('payment_gateway_id')->andReturn($gatewayId);
+        $payment->shouldReceive('getAttribute')->with('amount')->andReturn($amount);
         $payment->shouldReceive('fresh')->andReturnSelf();
 
         return $payment;
