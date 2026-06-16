@@ -2,12 +2,18 @@
 
 namespace App\Http\Requests;
 
+use App\Repositories\RestaurantSettingRepository;
 use App\Rules\AlignedToInterval;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class UpdateRestaurantSettingRequest extends FormRequest
 {
+    public function __construct(private RestaurantSettingRepository $repository)
+    {
+        parent::__construct();
+    }
+
     public function authorize(): bool
     {
         return true;
@@ -31,7 +37,7 @@ class UpdateRestaurantSettingRequest extends FormRequest
     {
         return [
             function ($validator) {
-                $settings = $this->existingSettings();
+                $settings = $this->repository->get();
                 $opening = $this->input('opening_time', $settings->opening_time);
                 $closing = $this->input('closing_time', $settings->closing_time);
                 $interval = (int) $this->input('time_slot_interval_minutes', $settings->time_slot_interval_minutes);
@@ -50,10 +56,5 @@ class UpdateRestaurantSettingRequest extends FormRequest
     private function toMinutes(string $time): int
     {
         return (int) substr($time, 0, 2) * 60 + (int) substr($time, 3, 2);
-    }
-
-    private function existingSettings(): \App\Models\RestaurantSetting
-    {
-        return \App\Models\RestaurantSetting::firstOrFail();
     }
 }
