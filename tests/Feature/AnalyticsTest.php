@@ -27,7 +27,7 @@ class AnalyticsTest extends TestCase
     public function test_unauthenticated_user_cannot_access_analytics(): void
     {
         $this->getJson('/api/admin/analytics/occupancy')->assertStatus(401);
-        $this->getJson('/api/admin/analytics/revenue')->assertStatus(401);
+        $this->getJson('/api/admin/analytics/deposits')->assertStatus(401);
         $this->getJson('/api/admin/analytics/top-menu-items')->assertStatus(401);
     }
 
@@ -36,7 +36,7 @@ class AnalyticsTest extends TestCase
         $client = $this->clientUser();
 
         $this->actingAs($client)->getJson('/api/admin/analytics/occupancy')->assertStatus(403);
-        $this->actingAs($client)->getJson('/api/admin/analytics/revenue')->assertStatus(403);
+        $this->actingAs($client)->getJson('/api/admin/analytics/deposits')->assertStatus(403);
         $this->actingAs($client)->getJson('/api/admin/analytics/top-menu-items')->assertStatus(403);
     }
 
@@ -122,7 +122,7 @@ class AnalyticsTest extends TestCase
 
     // --- Revenue ---
 
-    public function test_revenue_returns_correct_calculations(): void
+    public function test_deposits_returns_correct_calculations(): void
     {
         $reservation1 = Reservation::factory()->confirmed()->create();
         $reservation2 = Reservation::factory()->cancelled()->create([
@@ -144,7 +144,7 @@ class AnalyticsTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->adminUser())
-            ->getJson('/api/admin/analytics/revenue');
+            ->getJson('/api/admin/analytics/deposits');
 
         $response->assertStatus(200);
 
@@ -152,15 +152,15 @@ class AnalyticsTest extends TestCase
 
         $this->assertEquals(50.00, $data['total_collected']);
         $this->assertEquals(15.00, $data['total_refunded']);
-        $this->assertEquals(35.00, $data['net_revenue']);
+        $this->assertEquals(35.00, $data['net_deposits']);
         $this->assertEquals(2, $data['total_payments']);
         $this->assertEquals(25.00, $data['average_deposit']);
     }
 
-    public function test_revenue_with_no_payments_returns_zeros(): void
+    public function test_deposits_with_no_payments_returns_zeros(): void
     {
         $response = $this->actingAs($this->adminUser())
-            ->getJson('/api/admin/analytics/revenue');
+            ->getJson('/api/admin/analytics/deposits');
 
         $response->assertStatus(200);
 
@@ -168,7 +168,7 @@ class AnalyticsTest extends TestCase
 
         $this->assertEquals(0, $data['total_collected']);
         $this->assertEquals(0, $data['total_refunded']);
-        $this->assertEquals(0, $data['net_revenue']);
+        $this->assertEquals(0, $data['net_deposits']);
         $this->assertEquals(0, $data['total_payments']);
         $this->assertEquals(0, $data['average_deposit']);
     }
@@ -265,7 +265,7 @@ class AnalyticsTest extends TestCase
         $this->assertEquals(1, $data['by_status']['confirmed']);
     }
 
-    public function test_date_filter_works_on_revenue_endpoint(): void
+    public function test_date_filter_works_on_deposits_endpoint(): void
     {
         $inRange = Reservation::factory()->confirmed()->create(['date' => '2026-03-15']);
         $outOfRange = Reservation::factory()->confirmed()->create(['date' => '2026-03-01']);
@@ -282,7 +282,7 @@ class AnalyticsTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->adminUser())
-            ->getJson('/api/admin/analytics/revenue?date_from=2026-03-10&date_to=2026-03-20');
+            ->getJson('/api/admin/analytics/deposits?date_from=2026-03-10&date_to=2026-03-20');
 
         $response->assertStatus(200);
 

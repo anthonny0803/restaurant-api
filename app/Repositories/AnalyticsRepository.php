@@ -84,7 +84,7 @@ class AnalyticsRepository
             ->avg('seats_requested') ?? 0);
     }
 
-    public function revenueTotals(AnalyticsFilterDTO $filter): object
+    public function depositTotals(AnalyticsFilterDTO $filter): object
     {
         return DB::table('payments')
             ->join('reservations', 'payments.reservation_id', '=', 'reservations.id')
