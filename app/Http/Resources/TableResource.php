@@ -17,7 +17,7 @@ class TableResource extends JsonResource
             'location'     => $this->location,
             'description'  => $this->description,
             'is_active'    => $this->is_active,
-            'created_at'   => $this->created_at->toDateTimeString(),
+            'created_at'   => $this->created_at,
         ];
     }
 }

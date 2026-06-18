@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\DTOs\AnalyticsFilterDTO;
 use App\Repositories\AnalyticsRepository;
+use Illuminate\Support\Carbon;
 
 class AnalyticsService
 {
@@ -31,7 +32,7 @@ class AnalyticsService
                     : 0,
             ])->values()->toArray(),
             'peak_days' => $peakDays->map(fn ($day) => [
-                'date' => $day->date,
+                'date' => Carbon::parse($day->date)->format('Y-m-d\TH:i:s\Z'),
                 'total_reservations' => $day->total_reservations,
             ])->toArray(),
             'peak_hours' => $peakHours->map(fn ($hour) => [

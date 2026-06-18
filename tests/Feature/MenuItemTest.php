@@ -29,8 +29,7 @@ class MenuItemTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'data' => [['id', 'name', 'description', 'price', 'category', 'is_available', 'daily_stock', 'created_at']],
-                'links',
+                'data' => [['id', 'name', 'description', 'price', 'category', 'isAvailable', 'dailyStock', 'createdAt']],
                 'meta',
             ])
             ->assertJsonCount(3, 'data');
@@ -190,7 +189,7 @@ class MenuItemTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('data.description', null)
-            ->assertJsonPath('data.daily_stock', null);
+            ->assertJsonPath('data.dailyStock', null);
 
         $this->assertDatabaseHas('menu_items', [
             'id' => $menuItem->id,

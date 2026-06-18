@@ -15,6 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
         ]);
+
+        $middleware->api(append: [
+            \App\Http\Middleware\TransformApiResponse::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

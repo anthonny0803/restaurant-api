@@ -20,8 +20,7 @@ class ClientMenuItemTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'data' => [['id', 'name', 'description', 'price', 'category', 'is_available', 'is_featured', 'created_at']],
-                'links',
+                'data' => [['id', 'name', 'description', 'price', 'category', 'isAvailable', 'isFeatured', 'createdAt']],
                 'meta',
             ])
             ->assertJsonCount(3, 'data');
@@ -57,7 +56,7 @@ class ClientMenuItemTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
-            ->assertJsonMissing(['daily_stock']);
+            ->assertJsonMissing(['dailyStock']);
     }
 
     public function test_can_filter_by_category(): void
@@ -103,7 +102,7 @@ class ClientMenuItemTest extends TestCase
 
         $response->json('data');
         foreach ($response->json('data') as $item) {
-            $this->assertTrue($item['is_featured']);
+            $this->assertTrue($item['isFeatured']);
         }
     }
 
@@ -118,7 +117,7 @@ class ClientMenuItemTest extends TestCase
             ->assertJsonCount(3, 'data');
 
         foreach ($response->json('data') as $item) {
-            $this->assertFalse($item['is_featured']);
+            $this->assertFalse($item['isFeatured']);
         }
     }
 
@@ -164,7 +163,7 @@ class ClientMenuItemTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'data' => [['id', 'name', 'description', 'price', 'category', 'is_available', 'is_featured', 'created_at']],
+                'data' => [['id', 'name', 'description', 'price', 'category', 'isAvailable', 'isFeatured', 'createdAt']],
             ]);
     }
 
@@ -177,8 +176,7 @@ class ClientMenuItemTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonStructure([
                 'data',
-                'links' => ['first', 'last', 'prev', 'next'],
-                'meta' => ['current_page', 'last_page', 'per_page', 'total'],
+                'meta' => ['total', 'page', 'perPage'],
             ]);
 
         $this->assertLessThan(20, count($response->json('data')));
