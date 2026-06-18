@@ -1,0 +1,15 @@
+#!/command/with-contenv bash
+# Long-running queue worker, supervised by s6 alongside nginx + php-fpm.
+# Enabled only when WORKER_ENABLED=true (the Cloud Run worker service); on the
+# web service it stays idle so a single image serves both roles.
+
+if [ "${WORKER_ENABLED:-false}" != "true" ]; then
+    exec sleep infinity
+fi
+
+exec php /var/www/html/artisan queue:work redis \
+    --queue=default \
+    --tries=3 \
+    --max-time=3600 \
+    --sleep=3 \
+    --backoff=5

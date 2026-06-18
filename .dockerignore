@@ -1,0 +1,46 @@
+# Dependencies (reinstalled inside the image)
+/vendor
+/node_modules
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Version control and CI
+.git
+.gitignore
+.github
+
+# Tests and dev tooling
+/tests
+phpunit.xml
+.phpunit.result.cache
+/.editorconfig
+pint.json
+
+# Local-only infrastructure (s6 service files under /docker are needed at build)
+docker-compose.yml
+/docker/postgres
+
+# Compiled Laravel caches (regenerated inside the image; local copies reference
+# dev-only providers absent from the --no-dev build)
+/bootstrap/cache/*.php
+
+# Build artifacts and logs
+/storage/logs/*
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/public/build
+/public/hot
+
+# Editor and OS noise
+/.idea
+/.vscode
+.DS_Store
+
+# Project docs not needed at runtime
+CLAUDE.md
+memory.md
+README.md
