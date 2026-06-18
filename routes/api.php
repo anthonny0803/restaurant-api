@@ -49,7 +49,7 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
 
     Route::prefix('analytics')->group(function () {
         Route::get('/occupancy', [AnalyticsController::class, 'occupancy']);
-        Route::get('/revenue', [AnalyticsController::class, 'revenue']);
+        Route::get('/deposits', [AnalyticsController::class, 'deposits']);
         Route::get('/top-menu-items', [AnalyticsController::class, 'topMenuItems']);
     });
 });

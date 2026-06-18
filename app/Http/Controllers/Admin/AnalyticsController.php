@@ -19,11 +19,11 @@ class AnalyticsController extends Controller
         return response()->json(['data' => $this->service->occupancy($filter)]);
     }
 
-    public function revenue(AnalyticsFilterRequest $request): JsonResponse
+    public function deposits(AnalyticsFilterRequest $request): JsonResponse
     {
         $filter = new AnalyticsFilterDTO(...$request->validated());
 
-        return response()->json(['data' => $this->service->revenue($filter)]);
+        return response()->json(['data' => $this->service->deposits($filter)]);
     }
 
     public function topMenuItems(AnalyticsFilterRequest $request): JsonResponse

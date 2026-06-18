@@ -41,9 +41,9 @@ class AnalyticsService
         ];
     }
 
-    public function revenue(AnalyticsFilterDTO $filter): array
+    public function deposits(AnalyticsFilterDTO $filter): array
     {
-        $totals = $this->repository->revenueTotals($filter);
+        $totals = $this->repository->depositTotals($filter);
 
         $collected = (float) $totals->total_collected;
         $refunded = (float) $totals->total_refunded;
@@ -51,7 +51,7 @@ class AnalyticsService
         return [
             'total_collected' => round($collected, 2),
             'total_refunded' => round($refunded, 2),
-            'net_revenue' => round($collected - $refunded, 2),
+            'net_deposits' => round($collected - $refunded, 2),
             'total_payments' => (int) $totals->total_payments,
             'average_deposit' => $totals->total_payments > 0
                 ? round($collected / $totals->total_payments, 2)
