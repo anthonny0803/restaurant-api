@@ -29,14 +29,14 @@ class RestaurantSettingTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonStructure([
                 'data' => [
-                    'deposit_per_person',
-                    'cancellation_deadline_hours',
-                    'refund_percentage',
-                    'default_reservation_duration_minutes',
-                    'reminder_hours_before',
-                    'time_slot_interval_minutes',
-                    'opening_time',
-                    'closing_time',
+                    'depositPerPerson',
+                    'cancellationDeadlineHours',
+                    'refundPercentage',
+                    'defaultReservationDurationMinutes',
+                    'reminderHoursBefore',
+                    'timeSlotIntervalMinutes',
+                    'openingTime',
+                    'closingTime',
                 ],
             ]);
     }
@@ -51,7 +51,7 @@ class RestaurantSettingTest extends TestCase
             ]);
 
         $response->assertStatus(200)
-            ->assertJsonPath('data.time_slot_interval_minutes', 30);
+            ->assertJsonPath('data.timeSlotIntervalMinutes', 30);
 
         $this->assertDatabaseHas('restaurant_settings', [
             'time_slot_interval_minutes' => 30,
@@ -67,8 +67,8 @@ class RestaurantSettingTest extends TestCase
             ]);
 
         $response->assertStatus(200)
-            ->assertJsonPath('data.deposit_per_person', '10.00')
-            ->assertJsonPath('data.cancellation_deadline_hours', 48);
+            ->assertJsonPath('data.depositPerPerson', '10.00')
+            ->assertJsonPath('data.cancellationDeadlineHours', 48);
     }
 
     public function test_update_does_not_modify_fields_not_sent(): void
@@ -172,8 +172,8 @@ class RestaurantSettingTest extends TestCase
             ]);
 
         $response->assertStatus(200)
-            ->assertJsonPath('data.opening_time', '10:00')
-            ->assertJsonPath('data.closing_time', '22:00');
+            ->assertJsonPath('data.openingTime','10:00')
+            ->assertJsonPath('data.closingTime','22:00');
     }
 
     public function test_update_rejects_opening_time_after_closing_time(): void
@@ -270,8 +270,8 @@ class RestaurantSettingTest extends TestCase
                 'closing_time' => '22:00',
             ])
             ->assertStatus(200)
-            ->assertJsonPath('data.opening_time', '08:00')
-            ->assertJsonPath('data.closing_time', '22:00');
+            ->assertJsonPath('data.openingTime','08:00')
+            ->assertJsonPath('data.closingTime','22:00');
     }
 
     // ── Public Endpoint ─────────────────────────────────────
@@ -283,16 +283,16 @@ class RestaurantSettingTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonStructure([
                 'data' => [
-                    'opening_time',
-                    'closing_time',
-                    'time_slot_interval_minutes',
-                    'default_reservation_duration_minutes',
+                    'openingTime',
+                    'closingTime',
+                    'timeSlotIntervalMinutes',
+                    'defaultReservationDurationMinutes',
                 ],
             ])
-            ->assertJsonPath('data.opening_time', '09:00')
-            ->assertJsonPath('data.closing_time', '23:00')
-            ->assertJsonPath('data.time_slot_interval_minutes', 30)
-            ->assertJsonPath('data.default_reservation_duration_minutes', 60);
+            ->assertJsonPath('data.openingTime','09:00')
+            ->assertJsonPath('data.closingTime','23:00')
+            ->assertJsonPath('data.timeSlotIntervalMinutes', 30)
+            ->assertJsonPath('data.defaultReservationDurationMinutes', 60);
     }
 
     public function test_public_endpoint_does_not_expose_sensitive_settings(): void
@@ -300,8 +300,8 @@ class RestaurantSettingTest extends TestCase
         $response = $this->getJson('/api/settings/public');
 
         $response->assertStatus(200)
-            ->assertJsonMissing(['deposit_per_person'])
-            ->assertJsonMissing(['cancellation_deadline_hours'])
-            ->assertJsonMissing(['refund_percentage']);
+            ->assertJsonMissing(['depositPerPerson'])
+            ->assertJsonMissing(['cancellationDeadlineHours'])
+            ->assertJsonMissing(['refundPercentage']);
     }
 }

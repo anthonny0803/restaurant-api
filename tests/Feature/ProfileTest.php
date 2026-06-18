@@ -41,7 +41,7 @@ class ProfileTest extends TestCase
             ->assertJsonPath('data.email', $user->email)
             ->assertJsonPath('data.phone', '612345678')
             ->assertJsonPath('data.role', 'client')
-            ->assertJsonPath('data.is_guest', false);
+            ->assertJsonPath('data.isGuest',false);
     }
 
     public function test_admin_can_view_profile(): void
@@ -53,7 +53,7 @@ class ProfileTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('data.role', 'admin')
             ->assertJsonPath('data.phone', null)
-            ->assertJsonPath('data.is_guest', false);
+            ->assertJsonPath('data.isGuest',false);
     }
 
     public function test_guest_user_shows_is_guest_true(): void
@@ -65,7 +65,7 @@ class ProfileTest extends TestCase
         $response = $this->actingAs($guest)->getJson('/api/profile');
 
         $response->assertStatus(200)
-            ->assertJsonPath('data.is_guest', true);
+            ->assertJsonPath('data.isGuest',true);
     }
 
     public function test_unauthenticated_user_cannot_view_profile(): void

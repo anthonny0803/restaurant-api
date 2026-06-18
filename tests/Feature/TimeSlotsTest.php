@@ -46,9 +46,9 @@ class TimeSlotsTest extends TestCase
         // 09:00 to 22:00 stepping by 30 = 27 slots (22:30+60=23:30 > 23:00, excluded)
         $response->assertStatus(200)
             ->assertJsonCount(27, 'data')
-            ->assertJsonPath('data.0.start_time', '09:00')
+            ->assertJsonPath('data.0.startTime','09:00')
             ->assertJsonPath('data.0.status', 'available')
-            ->assertJsonPath('data.26.start_time', '22:00');
+            ->assertJsonPath('data.26.startTime','22:00');
     }
 
     public function test_returns_slots_with_60_min_interval(): void
@@ -67,8 +67,8 @@ class TimeSlotsTest extends TestCase
         // 10:00 to 21:00 stepping by 60 = 12 slots
         $response->assertStatus(200)
             ->assertJsonCount(12, 'data')
-            ->assertJsonPath('data.0.start_time', '10:00')
-            ->assertJsonPath('data.11.start_time', '21:00');
+            ->assertJsonPath('data.0.startTime','10:00')
+            ->assertJsonPath('data.11.startTime','21:00');
     }
 
     // ── Availability status ─────────────────────────────────
@@ -110,16 +110,16 @@ class TimeSlotsTest extends TestCase
         $slots = collect($response->json('data'));
 
         // 19:00 slot (19:00-20:00) overlaps both reservations (19:00-20:00) → blocked
-        $this->assertEquals('blocked', $slots->firstWhere('start_time', '19:00')['status']);
+        $this->assertEquals('blocked', $slots->firstWhere('startTime','19:00')['status']);
 
         // 19:30 slot (19:30-20:30) overlaps both reservations (19:00-20:00) → blocked
-        $this->assertEquals('blocked', $slots->firstWhere('start_time', '19:30')['status']);
+        $this->assertEquals('blocked', $slots->firstWhere('startTime','19:30')['status']);
 
         // 18:00 slot (18:00-19:00) does not overlap → available
-        $this->assertEquals('available', $slots->firstWhere('start_time', '18:00')['status']);
+        $this->assertEquals('available', $slots->firstWhere('startTime','18:00')['status']);
 
         // 20:00 slot (20:00-21:00) does not overlap → available
-        $this->assertEquals('available', $slots->firstWhere('start_time', '20:00')['status']);
+        $this->assertEquals('available', $slots->firstWhere('startTime','20:00')['status']);
     }
 
     public function test_slot_available_when_at_least_one_table_free(): void
@@ -149,7 +149,7 @@ class TimeSlotsTest extends TestCase
 
         $slots = collect($response->json('data'));
 
-        $this->assertEquals('available', $slots->firstWhere('start_time', '19:00')['status']);
+        $this->assertEquals('available', $slots->firstWhere('startTime','19:00')['status']);
     }
 
     public function test_pending_reservations_do_not_block_slots(): void
@@ -178,7 +178,7 @@ class TimeSlotsTest extends TestCase
 
         $slots = collect($response->json('data'));
 
-        $this->assertEquals('available', $slots->firstWhere('start_time', '19:00')['status']);
+        $this->assertEquals('available', $slots->firstWhere('startTime','19:00')['status']);
     }
 
     public function test_cancelled_and_expired_reservations_do_not_block_slots(): void
@@ -214,7 +214,7 @@ class TimeSlotsTest extends TestCase
 
         $slots = collect($response->json('data'));
 
-        $this->assertEquals('available', $slots->firstWhere('start_time', '19:00')['status']);
+        $this->assertEquals('available', $slots->firstWhere('startTime','19:00')['status']);
     }
 
     // ── Past slots ──────────────────────────────────────────
@@ -238,9 +238,9 @@ class TimeSlotsTest extends TestCase
 
         $slots = collect($response->json('data'));
 
-        $this->assertEquals('blocked', $slots->firstWhere('start_time', '14:30')['status']);
-        $this->assertEquals('blocked', $slots->firstWhere('start_time', '15:00')['status']);
-        $this->assertEquals('available', $slots->firstWhere('start_time', '15:30')['status']);
+        $this->assertEquals('blocked', $slots->firstWhere('startTime','14:30')['status']);
+        $this->assertEquals('blocked', $slots->firstWhere('startTime','15:00')['status']);
+        $this->assertEquals('available', $slots->firstWhere('startTime','15:30')['status']);
     }
 
     // ── Edge cases ──────────────────────────────────────────
@@ -285,14 +285,14 @@ class TimeSlotsTest extends TestCase
         $slots = collect($response->json('data'));
 
         // Slots that overlap with 19:00-20:30: 18:00(18:00-19:30), 18:30(18:30-20:00), 19:00(19:00-20:30), 19:30(19:30-21:00), 20:00(20:00-21:30)
-        $this->assertEquals('blocked', $slots->firstWhere('start_time', '18:00')['status']);
-        $this->assertEquals('blocked', $slots->firstWhere('start_time', '18:30')['status']);
-        $this->assertEquals('blocked', $slots->firstWhere('start_time', '19:00')['status']);
-        $this->assertEquals('blocked', $slots->firstWhere('start_time', '19:30')['status']);
-        $this->assertEquals('blocked', $slots->firstWhere('start_time', '20:00')['status']);
+        $this->assertEquals('blocked', $slots->firstWhere('startTime','18:00')['status']);
+        $this->assertEquals('blocked', $slots->firstWhere('startTime','18:30')['status']);
+        $this->assertEquals('blocked', $slots->firstWhere('startTime','19:00')['status']);
+        $this->assertEquals('blocked', $slots->firstWhere('startTime','19:30')['status']);
+        $this->assertEquals('blocked', $slots->firstWhere('startTime','20:00')['status']);
 
         // 20:30 slot (20:30-22:00) does not overlap with 19:00-20:30 → available
-        $this->assertEquals('available', $slots->firstWhere('start_time', '20:30')['status']);
+        $this->assertEquals('available', $slots->firstWhere('startTime','20:30')['status']);
     }
 
     // ── Validation ──────────────────────────────────────────

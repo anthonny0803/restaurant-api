@@ -15,13 +15,13 @@ class ReservationResource extends JsonResource
             'user_id' => $this->user_id,
             'table' => new TableResource($this->whenLoaded('table')),
             'seats_requested' => $this->seats_requested,
-            'date' => $this->date->format('Y-m-d'),
+            'date' => $this->date,
             'start_time' => $this->start_time,
             'end_time' => $this->end_time,
             'status' => $this->status,
             'expires_at' => $this->when(
                 $this->status === Reservation::STATUS_PENDING,
-                $this->expires_at?->toDateTimeString(),
+                $this->expires_at,
             ),
             'payment' => $this->when(
                 $this->relationLoaded('payment') && $this->payment,
@@ -29,11 +29,11 @@ class ReservationResource extends JsonResource
                     return [
                         'amount' => $this->payment->amount,
                         'status' => $this->payment->status,
-                        'paid_at' => $this->payment->paid_at?->toDateTimeString(),
+                        'paid_at' => $this->payment->paid_at,
                     ];
                 },
             ),
-            'created_at' => $this->created_at->toDateTimeString(),
+            'created_at' => $this->created_at,
         ];
     }
 }

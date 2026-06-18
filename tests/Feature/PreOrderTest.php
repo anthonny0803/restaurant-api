@@ -46,10 +46,10 @@ class PreOrderTest extends TestCase
                 'data' => [[
                     'id',
                     'quantity',
-                    'unit_price',
+                    'unitPrice',
                     'subtotal',
-                    'menu_item' => ['id', 'name', 'category'],
-                    'created_at',
+                    'menuItem' => ['id', 'name', 'category'],
+                    'createdAt',
                 ]],
             ]);
     }
@@ -82,9 +82,9 @@ class PreOrderTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonPath('data.quantity', 2)
-            ->assertJsonPath('data.unit_price', '12.50')
+            ->assertJsonPath('data.unitPrice', '12.50')
             ->assertJsonPath('data.subtotal', '25.00')
-            ->assertJsonPath('data.menu_item.id', $menuItem->id);
+            ->assertJsonPath('data.menuItem.id', $menuItem->id);
 
         $this->assertDatabaseHas('reservation_items', [
             'reservation_id' => $reservation->id,

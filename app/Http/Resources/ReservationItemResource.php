@@ -19,7 +19,7 @@ class ReservationItemResource extends JsonResource
                 'name' => $this->menuItem->name,
                 'category' => $this->menuItem->category->value,
             ],
-            'created_at' => $this->created_at->toDateTimeString(),
+            'created_at' => $this->created_at,
         ];
     }
 }
