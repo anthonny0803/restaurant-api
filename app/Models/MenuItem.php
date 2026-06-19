@@ -20,6 +20,7 @@ class MenuItem extends Model
         'is_available',
         'is_featured',
         'daily_stock',
+        'stock_remaining',
     ];
 
     protected function casts(): array
@@ -59,8 +60,25 @@ class MenuItem extends Model
     public function scopeInStock(Builder $query): Builder
     {
         return $query->where(function (Builder $q) {
-            $q->whereNull('daily_stock')
-                ->orWhere('daily_stock', '>', 0);
+            $q->whereNull('stock_remaining')
+                ->orWhere('stock_remaining', '>', 0);
+        });
+    }
+
+    // Lifecycle
+
+    protected static function booted(): void
+    {
+        static::creating(function (MenuItem $item) {
+            if (! array_key_exists('stock_remaining', $item->getAttributes())) {
+                $item->stock_remaining = $item->daily_stock;
+            }
+        });
+
+        static::updating(function (MenuItem $item) {
+            if ($item->isDirty('daily_stock') && ! $item->isDirty('stock_remaining')) {
+                $item->stock_remaining = $item->daily_stock;
+            }
         });
     }
 }

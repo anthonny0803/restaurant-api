@@ -94,7 +94,7 @@ class PreOrderTest extends TestCase
         ]);
     }
 
-    public function test_store_decrements_daily_stock(): void
+    public function test_store_decrements_stock_remaining(): void
     {
         $client = $this->clientUser();
         $reservation = Reservation::factory()->confirmed()->create(['user_id' => $client->id]);
@@ -108,7 +108,8 @@ class PreOrderTest extends TestCase
 
         $this->assertDatabaseHas('menu_items', [
             'id' => $menuItem->id,
-            'daily_stock' => 7,
+            'daily_stock' => 10,
+            'stock_remaining' => 7,
         ]);
     }
 
@@ -126,7 +127,7 @@ class PreOrderTest extends TestCase
 
         $this->assertDatabaseHas('menu_items', [
             'id' => $menuItem->id,
-            'daily_stock' => null,
+            'stock_remaining' => null,
         ]);
     }
 
@@ -278,7 +279,7 @@ class PreOrderTest extends TestCase
 
         $this->assertDatabaseHas('menu_items', [
             'id' => $menuItem->id,
-            'daily_stock' => 0,
+            'stock_remaining' => 0,
         ]);
     }
 
@@ -324,7 +325,7 @@ class PreOrderTest extends TestCase
 
         $this->assertDatabaseHas('menu_items', [
             'id' => $menuItem->id,
-            'daily_stock' => 10,
+            'stock_remaining' => 10,
         ]);
     }
 
@@ -345,7 +346,7 @@ class PreOrderTest extends TestCase
 
         $this->assertDatabaseHas('menu_items', [
             'id' => $menuItem->id,
-            'daily_stock' => null,
+            'stock_remaining' => null,
         ]);
     }
 

@@ -62,10 +62,10 @@ class MenuItemResource extends Resource
                             ->required(),
 
                         TextInput::make('daily_stock')
-                            ->label('Stock diario')
+                            ->label('Cuota diaria')
                             ->numeric()
                             ->minValue(0)
-                            ->helperText('Dejar vacio para stock ilimitado'),
+                            ->helperText('Stock que se repone cada dia. Dejar vacio para stock ilimitado'),
 
                         Textarea::make('description')
                             ->label('Descripcion')
@@ -110,7 +110,12 @@ class MenuItemResource extends Resource
                     }),
 
                 TextColumn::make('daily_stock')
-                    ->label('Stock diario')
+                    ->label('Cuota diaria')
+                    ->sortable()
+                    ->placeholder('Ilimitado'),
+
+                TextColumn::make('stock_remaining')
+                    ->label('Stock restante')
                     ->sortable()
                     ->placeholder('Ilimitado'),
 

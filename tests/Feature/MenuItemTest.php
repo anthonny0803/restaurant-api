@@ -29,7 +29,7 @@ class MenuItemTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'data' => [['id', 'name', 'description', 'price', 'category', 'isAvailable', 'dailyStock', 'createdAt']],
+                'data' => [['id', 'name', 'description', 'price', 'category', 'isAvailable', 'dailyStock', 'stockRemaining', 'createdAt']],
                 'meta',
             ])
             ->assertJsonCount(3, 'data');
@@ -73,9 +73,15 @@ class MenuItemTest extends TestCase
         $response->assertStatus(201)
             ->assertJsonPath('data.name', 'Tortilla de patatas')
             ->assertJsonPath('data.category', 'entrantes')
-            ->assertJsonPath('data.price', '8.50');
+            ->assertJsonPath('data.price', '8.50')
+            ->assertJsonPath('data.dailyStock', 20)
+            ->assertJsonPath('data.stockRemaining', 20);
 
-        $this->assertDatabaseHas('menu_items', ['name' => 'Tortilla de patatas']);
+        $this->assertDatabaseHas('menu_items', [
+            'name' => 'Tortilla de patatas',
+            'daily_stock' => 20,
+            'stock_remaining' => 20,
+        ]);
     }
 
     public function test_menu_item_name_must_be_unique(): void
@@ -189,12 +195,32 @@ class MenuItemTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('data.description', null)
-            ->assertJsonPath('data.dailyStock', null);
+            ->assertJsonPath('data.dailyStock', null)
+            ->assertJsonPath('data.stockRemaining', null);
 
         $this->assertDatabaseHas('menu_items', [
             'id' => $menuItem->id,
             'description' => null,
             'daily_stock' => null,
+            'stock_remaining' => null,
+        ]);
+    }
+
+    public function test_updating_quota_resyncs_stock_remaining(): void
+    {
+        $menuItem = MenuItem::factory()->create(['daily_stock' => 10]);
+
+        $response = $this->actingAs($this->adminUser())
+            ->putJson("/api/admin/menu-items/{$menuItem->id}", ['daily_stock' => 30]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.dailyStock', 30)
+            ->assertJsonPath('data.stockRemaining', 30);
+
+        $this->assertDatabaseHas('menu_items', [
+            'id' => $menuItem->id,
+            'daily_stock' => 30,
+            'stock_remaining' => 30,
         ]);
     }
 

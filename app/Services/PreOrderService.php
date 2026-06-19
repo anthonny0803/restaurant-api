@@ -43,7 +43,7 @@ class PreOrderService
                 'unit_price' => $menuItem->price,
             ]);
 
-            if ($menuItem->daily_stock !== null) {
+            if ($menuItem->stock_remaining !== null) {
                 $this->menuItemRepository->decrementStock($menuItem, $dto->quantity);
             }
 
@@ -60,7 +60,7 @@ class PreOrderService
         DB::transaction(function () use ($item) {
             $menuItem = $item->menuItem;
 
-            if ($menuItem->daily_stock !== null) {
+            if ($menuItem->stock_remaining !== null) {
                 $this->menuItemRepository->incrementStock($menuItem, $item->quantity);
             }
 
@@ -88,7 +88,7 @@ class PreOrderService
 
     private function ensureMenuItemHasStock(MenuItem $menuItem, int $quantity): void
     {
-        if ($menuItem->daily_stock !== null && $menuItem->daily_stock < $quantity) {
+        if ($menuItem->stock_remaining !== null && $menuItem->stock_remaining < $quantity) {
             throw ValidationException::withMessages([
                 'quantity' => ['No hay suficiente stock disponible para este plato.'],
             ]);
