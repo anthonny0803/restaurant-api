@@ -7,8 +7,8 @@ use App\Jobs\SendReservationRemindersJob;
 use App\Models\Payment;
 use App\Models\Reservation;
 use App\Models\User;
-use App\Notifications\ReservationCancelledNotification;
 use App\Notifications\GuestReservationConfirmedNotification;
+use App\Notifications\ReservationCancelledNotification;
 use App\Notifications\ReservationConfirmedNotification;
 use App\Notifications\ReservationExpiredNotification;
 use App\Notifications\ReservationPaymentRefundedNotification;
@@ -25,8 +25,8 @@ use Tests\Traits\CreatesUsers;
 
 class ReservationNotificationTest extends TestCase
 {
-    use RefreshDatabase;
     use CreatesUsers;
+    use RefreshDatabase;
 
     private PaymentService&MockInterface $paymentServiceMock;
 
@@ -46,7 +46,7 @@ class ReservationNotificationTest extends TestCase
     private function webhookPayload(string $gatewayId): string
     {
         return json_encode([
-            'id' => 'evt_test_' . uniqid(),
+            'id' => 'evt_test_'.uniqid(),
             'type' => 'payment_intent.succeeded',
             'data' => [
                 'object' => [
@@ -82,7 +82,7 @@ class ReservationNotificationTest extends TestCase
 
         $payload = $this->webhookPayload('pi_test_confirm');
 
-        $webhookMock = Mockery::mock('alias:' . Webhook::class);
+        $webhookMock = Mockery::mock('alias:'.Webhook::class);
         $webhookMock->shouldReceive('constructEvent')
             ->once()
             ->andReturn(Event::constructFrom(json_decode($payload, true)));
@@ -121,7 +121,7 @@ class ReservationNotificationTest extends TestCase
 
         $payload = $this->webhookPayload('pi_test_guest_confirm');
 
-        $webhookMock = Mockery::mock('alias:' . Webhook::class);
+        $webhookMock = Mockery::mock('alias:'.Webhook::class);
         $webhookMock->shouldReceive('constructEvent')
             ->once()
             ->andReturn(Event::constructFrom(json_decode($payload, true)));
@@ -161,7 +161,7 @@ class ReservationNotificationTest extends TestCase
 
         $payload = $this->webhookPayload('pi_test_guest_token');
 
-        $webhookMock = Mockery::mock('alias:' . Webhook::class);
+        $webhookMock = Mockery::mock('alias:'.Webhook::class);
         $webhookMock->shouldReceive('constructEvent')
             ->once()
             ->andReturn(Event::constructFrom(json_decode($payload, true)));
@@ -189,6 +189,16 @@ class ReservationNotificationTest extends TestCase
         ]);
 
         Payment::factory()->succeeded()->create(['reservation_id' => $reservation->id]);
+
+        $this->paymentServiceMock
+            ->shouldReceive('markRefundPending')
+            ->once()
+            ->andReturnUsing(function (Payment $payment, float $amount): void {
+                $payment->update([
+                    'status' => Payment::STATUS_REFUND_PENDING,
+                    'refund_amount' => $amount,
+                ]);
+            });
 
         $this->paymentServiceMock
             ->shouldReceive('refund')
@@ -245,7 +255,7 @@ class ReservationNotificationTest extends TestCase
 
         $payload = $this->webhookPayload('pi_test_late');
 
-        $webhookMock = Mockery::mock('alias:' . Webhook::class);
+        $webhookMock = Mockery::mock('alias:'.Webhook::class);
         $webhookMock->shouldReceive('constructEvent')
             ->once()
             ->andReturn(Event::constructFrom(json_decode($payload, true)));
@@ -310,7 +320,7 @@ class ReservationNotificationTest extends TestCase
 
         $reservation->forceFill(['created_at' => now()->subDays(2)])->save();
 
-        $job = new SendReservationRemindersJob();
+        $job = new SendReservationRemindersJob;
         $job->handle(
             app(\App\Repositories\RestaurantSettingRepository::class),
             app(\App\Repositories\ReservationRepository::class),
@@ -332,7 +342,7 @@ class ReservationNotificationTest extends TestCase
             'created_at' => now(),
         ]);
 
-        $job = new SendReservationRemindersJob();
+        $job = new SendReservationRemindersJob;
         $job->handle(
             app(\App\Repositories\RestaurantSettingRepository::class),
             app(\App\Repositories\ReservationRepository::class),
@@ -355,7 +365,7 @@ class ReservationNotificationTest extends TestCase
             'reminder_sent_at' => now()->subHour(),
         ]);
 
-        $job = new SendReservationRemindersJob();
+        $job = new SendReservationRemindersJob;
         $job->handle(
             app(\App\Repositories\RestaurantSettingRepository::class),
             app(\App\Repositories\ReservationRepository::class),

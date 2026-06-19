@@ -6,13 +6,14 @@ use App\DTOs\AvailableTablesDTO;
 use App\DTOs\HoldReservationDTO;
 use App\DTOs\TimeSlotsDTO;
 use App\Jobs\ExpireReservationJob;
-use App\Notifications\ReservationCancelledNotification;
-use App\Notifications\GuestReservationConfirmedNotification;
-use App\Notifications\ReservationConfirmedNotification;
-use App\Notifications\ReservationPaymentRefundedNotification;
+use App\Jobs\RefundReservationPaymentJob;
 use App\Models\Payment;
 use App\Models\Reservation;
 use App\Models\RestaurantSetting;
+use App\Notifications\GuestReservationConfirmedNotification;
+use App\Notifications\ReservationCancelledNotification;
+use App\Notifications\ReservationConfirmedNotification;
+use App\Notifications\ReservationPaymentRefundedNotification;
 use App\Repositories\ReservationRepository;
 use App\Repositories\RestaurantSettingRepository;
 use App\Repositories\TableRepository;
@@ -193,7 +194,7 @@ class ReservationService
             ]);
         }
 
-        $reservationDateTime = Carbon::parse($reservation->date->format('Y-m-d') . ' ' . $reservation->start_time);
+        $reservationDateTime = Carbon::parse($reservation->date->format('Y-m-d').' '.$reservation->start_time);
 
         $pendingAction = DB::transaction(function () use ($reservation, $reservationDateTime) {
             $this->reservationRepository->updateStatus($reservation, Reservation::STATUS_CANCELLED);
@@ -219,10 +220,10 @@ class ReservationService
                 ? (float) $payment->amount
                 : (float) $payment->amount * $snapshot->refund_percentage / 100;
 
-            return ['action' => 'refund', 'payment' => $payment, 'amount' => $amount];
-        });
+            $this->paymentService->markRefundPending($payment, $amount);
 
-        $refundAmount = null;
+            return ['action' => 'refund'];
+        });
 
         if ($pendingAction['action'] === 'cancel') {
             try {
@@ -237,23 +238,13 @@ class ReservationService
         }
 
         if ($pendingAction['action'] === 'refund') {
-            try {
-                $this->paymentService->refund($pendingAction['payment'], $pendingAction['amount']);
-                $refundAmount = $pendingAction['amount'];
-            } catch (\Exception $e) {
-                Log::error('Failed to refund payment on reservation cancellation', [
-                    'reservation_id' => $reservation->id,
-                    'payment_id' => $pendingAction['payment']->id,
-                    'gateway_id' => $pendingAction['payment']->payment_gateway_id,
-                    'amount' => $pendingAction['amount'],
-                ]);
-            }
+            RefundReservationPaymentJob::dispatch($reservation->id);
         }
 
         $reservation = $reservation->fresh();
 
-        if ($reservation->user) {
-            $reservation->user->notify(new ReservationCancelledNotification($reservation, $refundAmount));
+        if ($pendingAction['action'] !== 'refund' && $reservation->user) {
+            $reservation->user->notify(new ReservationCancelledNotification($reservation, null));
         }
 
         return $reservation;
@@ -340,10 +331,11 @@ class ReservationService
 
             if ($slotEnd > $closing->format('H:i:s')) {
                 $current->addMinutes($interval);
+
                 continue;
             }
 
-            if ($isToday && Carbon::parse($dto->date . ' ' . $slotStart)->lte($now)) {
+            if ($isToday && Carbon::parse($dto->date.' '.$slotStart)->lte($now)) {
                 $status = 'blocked';
             } else {
                 $bookedCount = $reservations
@@ -381,7 +373,7 @@ class ReservationService
         string $endTime,
         RestaurantSetting $settings
     ): void {
-        $reservationDateTime = Carbon::parse($date . ' ' . $startTime);
+        $reservationDateTime = Carbon::parse($date.' '.$startTime);
 
         if ($reservationDateTime->isPast() || Carbon::parse($date)->greaterThan(now()->addWeek())) {
             throw ValidationException::withMessages([
