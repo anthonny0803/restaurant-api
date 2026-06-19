@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\ExpireReservationJob;
+use App\Jobs\RefundReservationPaymentJob;
 use App\Models\Payment;
 use App\Models\Reservation;
 use App\Models\RestaurantSetting;
@@ -18,8 +19,8 @@ use Tests\Traits\CreatesUsers;
 
 class ReservationTest extends TestCase
 {
-    use RefreshDatabase;
     use CreatesUsers;
+    use RefreshDatabase;
 
     private PaymentService&MockInterface $paymentServiceMock;
 
@@ -80,7 +81,7 @@ class ReservationTest extends TestCase
                 ],
             ])
             ->assertJsonPath('data.reservation.status', 'pending')
-            ->assertJsonPath('data.clientSecret','pi_test_123_secret');
+            ->assertJsonPath('data.clientSecret', 'pi_test_123_secret');
 
         $this->assertDatabaseHas('reservations', [
             'table_id' => $table->id,
@@ -214,7 +215,7 @@ class ReservationTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonPath('data.reservation.status', 'pending')
-            ->assertJsonPath('data.clientSecret','pi_test_second_secret');
+            ->assertJsonPath('data.clientSecret', 'pi_test_second_secret');
 
         $this->assertDatabaseHas('reservations', [
             'id' => $firstReservation->id,
@@ -364,7 +365,7 @@ class ReservationTest extends TestCase
             ]);
 
         $response->assertStatus(201)
-            ->assertJsonPath('data.clientSecret','pi_test_second_secret');
+            ->assertJsonPath('data.clientSecret', 'pi_test_second_secret');
 
         $this->assertDatabaseHas('reservations', [
             'table_id' => $secondTable->id,
@@ -514,8 +515,10 @@ class ReservationTest extends TestCase
 
     public function test_client_can_cancel_own_confirmed_reservation(): void
     {
+        Queue::fake();
+
         $this->paymentServiceMock
-            ->shouldReceive('refund')
+            ->shouldReceive('markRefundPending')
             ->once();
 
         $client = $this->clientUser();
@@ -535,6 +538,8 @@ class ReservationTest extends TestCase
             'id' => $reservation->id,
             'status' => 'cancelled',
         ]);
+
+        Queue::assertPushed(RefundReservationPaymentJob::class);
     }
 
     public function test_cancel_pending_reservation_without_payment(): void
@@ -701,33 +706,38 @@ class ReservationTest extends TestCase
         $this->assertDatabaseCount('cancellation_policy_snapshots', 0);
     }
 
-    public function test_cancel_cancels_reservation_and_logs_error_when_stripe_refund_fails(): void
+    public function test_cancel_marks_payment_refund_pending_and_dispatches_refund_job(): void
     {
-        $this->paymentServiceMock
-            ->shouldReceive('refund')
-            ->once()
-            ->andThrow(new \Exception('Stripe refund error'));
+        Queue::fake();
 
-        \Illuminate\Support\Facades\Log::shouldReceive('error')
+        $this->paymentServiceMock
+            ->shouldReceive('markRefundPending')
             ->once()
-            ->with('Failed to refund payment on reservation cancellation', Mockery::type('array'));
+            ->andReturnUsing(function (Payment $payment, float $amount): void {
+                $payment->update([
+                    'status' => Payment::STATUS_REFUND_PENDING,
+                    'refund_amount' => $amount,
+                ]);
+            });
 
         $client = $this->clientUser();
         $reservation = Reservation::factory()->withCancellationPolicy()->create([
             'user_id' => $client->id,
         ]);
 
-        Payment::factory()->succeeded()->create(['reservation_id' => $reservation->id]);
+        $payment = Payment::factory()->succeeded()->create(['reservation_id' => $reservation->id]);
 
         $response = $this->actingAs($client)
             ->postJson("/api/reservations/{$reservation->id}/cancel");
 
         $response->assertStatus(200);
 
-        $this->assertDatabaseHas('reservations', [
-            'id' => $reservation->id,
-            'status' => Reservation::STATUS_CANCELLED,
+        $this->assertDatabaseHas('payments', [
+            'id' => $payment->id,
+            'status' => Payment::STATUS_REFUND_PENDING,
         ]);
+
+        Queue::assertPushed(RefundReservationPaymentJob::class);
     }
 
     // ── Business hours validation ───────────────────────────
@@ -770,7 +780,7 @@ class ReservationTest extends TestCase
     {
         RestaurantSetting::first()->update(['opening_time' => '12:00', 'closing_time' => '22:00']);
 
-        $response = $this->getJson('/api/reservations/available-tables?' . http_build_query([
+        $response = $this->getJson('/api/reservations/available-tables?'.http_build_query([
             'date' => now()->addDays(3)->format('Y-m-d'),
             'start_time' => '11:00',
             'seats_requested' => 2,

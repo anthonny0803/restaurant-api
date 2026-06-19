@@ -9,11 +9,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Payment extends Model
 {
     use HasFactory;
+
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_SUCCEEDED = 'succeeded';
+
     public const STATUS_FAILED = 'failed';
+
     public const STATUS_REFUNDED = 'refunded';
+
     public const STATUS_PARTIALLY_REFUNDED = 'partially_refunded';
+
+    public const STATUS_REFUND_PENDING = 'refund_pending';
+
+    public const STATUS_REFUND_FAILED = 'refund_failed';
 
     protected $fillable = [
         'reservation_id',

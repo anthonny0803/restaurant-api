@@ -109,6 +109,8 @@ class PaymentService
         Refund::create([
             'payment_intent' => $payment->payment_gateway_id,
             'amount' => $amountInCents,
+        ], [
+            'idempotency_key' => "reservation_{$payment->reservation_id}_refund",
         ]);
 
         $status = $amount >= (float) $payment->amount
@@ -121,5 +123,13 @@ class PaymentService
         ]);
 
         return $payment->fresh();
+    }
+
+    public function markRefundPending(Payment $payment, float $amount): void
+    {
+        $this->paymentRepository->update($payment, [
+            'status' => Payment::STATUS_REFUND_PENDING,
+            'refund_amount' => $amount,
+        ]);
     }
 }

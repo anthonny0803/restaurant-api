@@ -16,6 +16,7 @@ use Tests\TestCase;
 class PaymentServiceTest extends TestCase
 {
     private PaymentService $service;
+
     private PaymentRepository&MockInterface $paymentRepository;
 
     protected function setUp(): void
@@ -376,6 +377,32 @@ class PaymentServiceTest extends TestCase
         $this->paymentRepository->shouldReceive('update')->once();
 
         $result = $this->service->refund($payment, 10.99);
+
+        $this->assertSame($payment, $result);
+    }
+
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function test_refund_passes_idempotency_key_derived_from_reservation_id(): void
+    {
+        $payment = $this->makePaymentMock(
+            Payment::STATUS_SUCCEEDED,
+            gatewayId: 'pi_idem',
+            amount: 25.50,
+        );
+        $payment->shouldReceive('getAttribute')->with('reservation_id')->andReturn(42);
+
+        $refundMock = Mockery::mock('alias:Stripe\Refund');
+        $refundMock
+            ->shouldReceive('create')
+            ->once()
+            ->withArgs(function (array $params, array $options) {
+                return $options['idempotency_key'] === 'reservation_42_refund';
+            });
+
+        $this->paymentRepository->shouldReceive('update')->once();
+
+        $result = $this->service->refund($payment, 25.50);
 
         $this->assertSame($payment, $result);
     }
