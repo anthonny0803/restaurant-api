@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Enums\MenuCategory;
 use App\Models\MenuItem;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class MenuItemRepository
 {
@@ -68,11 +69,17 @@ class MenuItemRepository
 
     public function decrementStock(MenuItem $menuItem, int $quantity): void
     {
-        $menuItem->decrement('daily_stock', $quantity);
+        $menuItem->decrement('stock_remaining', $quantity);
     }
 
     public function incrementStock(MenuItem $menuItem, int $quantity): void
     {
-        $menuItem->increment('daily_stock', $quantity);
+        $menuItem->increment('stock_remaining', $quantity);
+    }
+
+    public function resetDailyStock(): int
+    {
+        return MenuItem::whereNotNull('daily_stock')
+            ->update(['stock_remaining' => DB::raw('daily_stock')]);
     }
 }

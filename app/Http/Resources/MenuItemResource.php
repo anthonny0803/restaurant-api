@@ -18,6 +18,7 @@ class MenuItemResource extends JsonResource
             'is_available' => $this->is_available,
             'is_featured' => $this->is_featured,
             'daily_stock' => $this->when($request->user()?->hasRole('admin'), $this->daily_stock),
+            'stock_remaining' => $this->when($request->user()?->hasRole('admin'), $this->stock_remaining),
             'created_at' => $this->created_at,
         ];
     }

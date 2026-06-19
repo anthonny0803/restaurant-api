@@ -32,7 +32,7 @@ class MenuItemFactory extends Factory
 
     public function withoutStock(): static
     {
-        return $this->state(['daily_stock' => 0]);
+        return $this->state(['daily_stock' => 10, 'stock_remaining' => 0]);
     }
 
     public function unlimitedStock(): static
