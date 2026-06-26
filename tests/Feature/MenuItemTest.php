@@ -53,8 +53,7 @@ class MenuItemTest extends TestCase
         $response = $this->actingAs($this->adminUser())
             ->getJson('/api/admin/menu-items?category=invalida');
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['category']);
+        $this->assertApiValidationError($response, ['category']);
     }
 
     // --- Create ---
@@ -95,8 +94,7 @@ class MenuItemTest extends TestCase
                 'category' => 'principales',
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['name']);
+        $this->assertApiValidationError($response, ['name']);
     }
 
     public function test_name_and_price_and_category_are_required(): void
@@ -104,8 +102,7 @@ class MenuItemTest extends TestCase
         $response = $this->actingAs($this->adminUser())
             ->postJson('/api/admin/menu-items', []);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['name', 'price', 'category']);
+        $this->assertApiValidationError($response, ['name', 'price', 'category']);
     }
 
     public function test_invalid_category_is_rejected(): void
@@ -117,8 +114,7 @@ class MenuItemTest extends TestCase
                 'category' => 'pizzas',
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['category']);
+        $this->assertApiValidationError($response, ['category']);
     }
 
     public function test_price_must_be_positive(): void
@@ -130,8 +126,7 @@ class MenuItemTest extends TestCase
                 'category' => 'bebidas',
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['price']);
+        $this->assertApiValidationError($response, ['price']);
     }
 
     // --- Show ---

@@ -46,20 +46,20 @@ class AnalyticsTest extends TestCase
     {
         $admin = $this->adminUser();
 
-        $this->actingAs($admin)
-            ->getJson('/api/admin/analytics/occupancy?date_from=15-03-2026')
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['date_from']);
+        $response = $this->actingAs($admin)
+            ->getJson('/api/admin/analytics/occupancy?dateFrom=15-03-2026');
+
+        $this->assertApiValidationError($response, ['dateFrom']);
     }
 
     public function test_date_to_before_date_from_returns_422(): void
     {
         $admin = $this->adminUser();
 
-        $this->actingAs($admin)
-            ->getJson('/api/admin/analytics/occupancy?date_from=2026-03-20&date_to=2026-03-10')
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['date_to']);
+        $response = $this->actingAs($admin)
+            ->getJson('/api/admin/analytics/occupancy?dateFrom=2026-03-20&dateTo=2026-03-10');
+
+        $this->assertApiValidationError($response, ['dateTo']);
     }
 
     // --- Occupancy ---
@@ -255,7 +255,7 @@ class AnalyticsTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->adminUser())
-            ->getJson('/api/admin/analytics/occupancy?date_from=2026-03-18&date_to=2026-03-25');
+            ->getJson('/api/admin/analytics/occupancy?dateFrom=2026-03-18&dateTo=2026-03-25');
 
         $response->assertStatus(200);
 
@@ -282,7 +282,7 @@ class AnalyticsTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->adminUser())
-            ->getJson('/api/admin/analytics/deposits?date_from=2026-03-10&date_to=2026-03-20');
+            ->getJson('/api/admin/analytics/deposits?dateFrom=2026-03-10&dateTo=2026-03-20');
 
         $response->assertStatus(200);
 

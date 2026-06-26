@@ -75,9 +75,9 @@ class ForgotPasswordTest extends TestCase
 
     public function test_forgot_password_validates_email_format(): void
     {
-        $this->postJson('/api/auth/forgot-password', ['email' => 'not-an-email'])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+        $response = $this->postJson('/api/auth/forgot-password', ['email' => 'not-an-email']);
+
+        $this->assertApiValidationError($response, ['email']);
     }
 
     public function test_reset_password_updates_password_successfully(): void
@@ -135,14 +135,14 @@ class ForgotPasswordTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->postJson('/api/auth/reset-password', [
+        $response = $this->postJson('/api/auth/reset-password', [
             'email'                 => $user->email,
             'token'                 => 'invalid-token',
             'password'              => 'NewPassword1',
             'password_confirmation' => 'NewPassword1',
-        ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+        ]);
+
+        $this->assertApiValidationError($response, ['email']);
     }
 
     public function test_reset_password_fails_with_expired_token(): void
@@ -152,14 +152,14 @@ class ForgotPasswordTest extends TestCase
 
         $this->travel(61)->minutes();
 
-        $this->postJson('/api/auth/reset-password', [
+        $response = $this->postJson('/api/auth/reset-password', [
             'email'                 => $user->email,
             'token'                 => $token,
             'password'              => 'NewPassword1',
             'password_confirmation' => 'NewPassword1',
-        ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+        ]);
+
+        $this->assertApiValidationError($response, ['email']);
     }
 
     public function test_reset_password_rejects_weak_password(): void
@@ -167,14 +167,14 @@ class ForgotPasswordTest extends TestCase
         $user = User::factory()->create();
         $token = Password::broker()->createToken($user);
 
-        $this->postJson('/api/auth/reset-password', [
+        $response = $this->postJson('/api/auth/reset-password', [
             'email'                 => $user->email,
             'token'                 => $token,
             'password'              => '12345678',
             'password_confirmation' => '12345678',
-        ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['password']);
+        ]);
+
+        $this->assertApiValidationError($response, ['password']);
     }
 
     public function test_reset_password_requires_password_confirmation(): void
@@ -182,13 +182,13 @@ class ForgotPasswordTest extends TestCase
         $user = User::factory()->create();
         $token = Password::broker()->createToken($user);
 
-        $this->postJson('/api/auth/reset-password', [
+        $response = $this->postJson('/api/auth/reset-password', [
             'email' => $user->email,
             'token' => $token,
             'password' => 'NewPassword1',
-        ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['password']);
+        ]);
+
+        $this->assertApiValidationError($response, ['password']);
     }
 
     public function test_user_can_login_with_new_password_after_reset(): void

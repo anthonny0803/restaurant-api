@@ -38,7 +38,7 @@ class CompleteAccountTest extends TestCase
         $response = $this->actingAs($user)
             ->postJson('/api/auth/complete-account', [
                 'password' => 'NewPassword1',
-                'password_confirmation' => 'NewPassword1',
+                'passwordConfirmation' => 'NewPassword1',
             ]);
 
         $response->assertStatus(200)
@@ -57,11 +57,10 @@ class CompleteAccountTest extends TestCase
         $response = $this->actingAs($user)
             ->postJson('/api/auth/complete-account', [
                 'password' => 'NewPassword1',
-                'password_confirmation' => 'NewPassword1',
+                'passwordConfirmation' => 'NewPassword1',
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['account']);
+        $this->assertApiValidationError($response, ['account']);
     }
 
     public function test_complete_account_rejects_missing_fields(): void
@@ -71,8 +70,7 @@ class CompleteAccountTest extends TestCase
         $response = $this->actingAs($user)
             ->postJson('/api/auth/complete-account', []);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['password']);
+        $this->assertApiValidationError($response, ['password']);
     }
 
     public function test_complete_account_revokes_all_tokens(): void
@@ -85,7 +83,7 @@ class CompleteAccountTest extends TestCase
         $this->actingAs($user)
             ->postJson('/api/auth/complete-account', [
                 'password' => 'NewPassword1',
-                'password_confirmation' => 'NewPassword1',
+                'passwordConfirmation' => 'NewPassword1',
             ]);
 
         $this->assertDatabaseCount('personal_access_tokens', 0);
@@ -95,7 +93,7 @@ class CompleteAccountTest extends TestCase
     {
         $response = $this->postJson('/api/auth/complete-account', [
             'password' => 'NewPassword1',
-            'password_confirmation' => 'NewPassword1',
+            'passwordConfirmation' => 'NewPassword1',
         ]);
 
         $response->assertStatus(401);

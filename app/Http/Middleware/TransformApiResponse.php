@@ -18,10 +18,6 @@ class TransformApiResponse
             return $response;
         }
 
-        if ($response->getStatusCode() === Response::HTTP_UNPROCESSABLE_ENTITY) {
-            return $response;
-        }
-
         $payload = $response->getData(true);
 
         if (! is_array($payload)) {

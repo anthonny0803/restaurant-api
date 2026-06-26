@@ -66,12 +66,40 @@ class ApiContractTest extends TestCase
         $this->assertSame(10, $response->json('meta.total'));
     }
 
-    public function test_validation_errors_keep_request_field_names(): void
+    public function test_validation_errors_use_contract_envelope(): void
     {
         $response = $this->actingAs($this->adminUser())
             ->postJson('/api/admin/menu-items', ['price' => -1]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['name', 'category']);
+        $this->assertApiValidationError($response, ['name', 'category']);
+    }
+
+    public function test_accepts_camel_case_json_body_and_persists_snake_case(): void
+    {
+        $response = $this->actingAs($this->adminUser())
+            ->postJson('/api/admin/tables', [
+                'name' => 'Mesa Contrato',
+                'minCapacity' => 2,
+                'maxCapacity' => 4,
+                'location' => 'interior',
+                'isActive' => true,
+            ]);
+
+        $response->assertStatus(201);
+
+        $this->assertDatabaseHas('tables', [
+            'name' => 'Mesa Contrato',
+            'min_capacity' => 2,
+            'max_capacity' => 4,
+            'is_active' => true,
+        ]);
+    }
+
+    public function test_validates_camel_case_query_string_input(): void
+    {
+        $response = $this->actingAs($this->adminUser())
+            ->getJson('/api/admin/analytics/deposits?dateFrom=2026-06-01&dateTo=2026-05-01');
+
+        $this->assertApiValidationError($response, ['dateTo']);
     }
 }

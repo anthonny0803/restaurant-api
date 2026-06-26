@@ -24,7 +24,7 @@ class TimeSlotsTest extends TestCase
     {
         return array_merge([
             'date' => now()->addDays(3)->format('Y-m-d'),
-            'seats_requested' => 2,
+            'seatsRequested' => 2,
         ], $overrides);
     }
 
@@ -250,7 +250,7 @@ class TimeSlotsTest extends TestCase
         Table::factory()->create(['min_capacity' => 2, 'max_capacity' => 4]);
 
         $response = $this->getJson('/api/reservations/time-slots?' . http_build_query($this->queryParams([
-            'seats_requested' => 20,
+            'seatsRequested' => 20,
         ])));
 
         $response->assertStatus(200)
@@ -300,11 +300,10 @@ class TimeSlotsTest extends TestCase
     public function test_rejects_missing_date(): void
     {
         $response = $this->getJson('/api/reservations/time-slots?' . http_build_query([
-            'seats_requested' => 2,
+            'seatsRequested' => 2,
         ]));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['date']);
+        $this->assertApiValidationError($response, ['date']);
     }
 
     public function test_rejects_missing_seats_requested(): void
@@ -313,8 +312,7 @@ class TimeSlotsTest extends TestCase
             'date' => now()->addDays(3)->format('Y-m-d'),
         ]));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['seats_requested']);
+        $this->assertApiValidationError($response, ['seatsRequested']);
     }
 
     public function test_rejects_past_date(): void
@@ -323,8 +321,7 @@ class TimeSlotsTest extends TestCase
             'date' => now()->subDay()->format('Y-m-d'),
         ])));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['date']);
+        $this->assertApiValidationError($response, ['date']);
     }
 
     public function test_rejects_date_beyond_7_days(): void
@@ -333,8 +330,7 @@ class TimeSlotsTest extends TestCase
             'date' => now()->addDays(8)->format('Y-m-d'),
         ])));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['date']);
+        $this->assertApiValidationError($response, ['date']);
     }
 
     // ── Access ───────────────────────────────────────────────

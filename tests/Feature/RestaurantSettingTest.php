@@ -94,12 +94,12 @@ class RestaurantSettingTest extends TestCase
         $admin = $this->adminUser();
 
         foreach ([15, 20, 45] as $invalidValue) {
-            $this->actingAs($admin)
+            $response = $this->actingAs($admin)
                 ->patchJson('/api/admin/settings', [
                     'time_slot_interval_minutes' => $invalidValue,
-                ])
-                ->assertStatus(422)
-                ->assertJsonValidationErrors(['time_slot_interval_minutes']);
+                ]);
+
+            $this->assertApiValidationError($response, ['timeSlotIntervalMinutes']);
         }
     }
 
@@ -108,12 +108,12 @@ class RestaurantSettingTest extends TestCase
         $admin = $this->adminUser();
 
         foreach ([15, 45, 120, 480] as $invalidValue) {
-            $this->actingAs($admin)
+            $response = $this->actingAs($admin)
                 ->patchJson('/api/admin/settings', [
                     'default_reservation_duration_minutes' => $invalidValue,
-                ])
-                ->assertStatus(422)
-                ->assertJsonValidationErrors(['default_reservation_duration_minutes']);
+                ]);
+
+            $this->assertApiValidationError($response, ['defaultReservationDurationMinutes']);
         }
     }
 
@@ -124,8 +124,7 @@ class RestaurantSettingTest extends TestCase
                 'deposit_per_person' => -5,
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['deposit_per_person']);
+        $this->assertApiValidationError($response, ['depositPerPerson']);
     }
 
     public function test_update_rejects_refund_percentage_above_100(): void
@@ -135,8 +134,7 @@ class RestaurantSettingTest extends TestCase
                 'refund_percentage' => 150,
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['refund_percentage']);
+        $this->assertApiValidationError($response, ['refundPercentage']);
     }
 
     // ── Authorization ────────────────────────────────────────
@@ -184,8 +182,7 @@ class RestaurantSettingTest extends TestCase
                 'closing_time' => '10:00',
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['opening_time']);
+        $this->assertApiValidationError($response, ['openingTime']);
     }
 
     public function test_update_rejects_opening_time_equal_to_closing_time(): void
@@ -196,8 +193,7 @@ class RestaurantSettingTest extends TestCase
                 'closing_time' => '12:00',
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['opening_time']);
+        $this->assertApiValidationError($response, ['openingTime']);
     }
 
     public function test_partial_update_validates_against_existing_hours(): void
@@ -209,8 +205,7 @@ class RestaurantSettingTest extends TestCase
                 'closing_time' => '09:00',
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['opening_time']);
+        $this->assertApiValidationError($response, ['openingTime']);
     }
 
     public function test_update_rejects_invalid_time_format(): void
@@ -220,44 +215,43 @@ class RestaurantSettingTest extends TestCase
                 'opening_time' => '9am',
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['opening_time']);
+        $this->assertApiValidationError($response, ['openingTime']);
     }
 
     public function test_update_rejects_opening_time_not_aligned_to_interval(): void
     {
         RestaurantSetting::first()->update(['time_slot_interval_minutes' => 60]);
 
-        $this->actingAs($this->adminUser())
+        $response = $this->actingAs($this->adminUser())
             ->patchJson('/api/admin/settings', [
                 'opening_time' => '08:30',
-            ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['opening_time']);
+            ]);
+
+        $this->assertApiValidationError($response, ['openingTime']);
     }
 
     public function test_update_rejects_closing_time_not_aligned_to_interval(): void
     {
         RestaurantSetting::first()->update(['time_slot_interval_minutes' => 60]);
 
-        $this->actingAs($this->adminUser())
+        $response = $this->actingAs($this->adminUser())
             ->patchJson('/api/admin/settings', [
                 'closing_time' => '22:30',
-            ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['closing_time']);
+            ]);
+
+        $this->assertApiValidationError($response, ['closingTime']);
     }
 
     public function test_update_rejects_interval_change_that_misaligns_existing_times(): void
     {
         RestaurantSetting::first()->update(['opening_time' => '08:30']);
 
-        $this->actingAs($this->adminUser())
+        $response = $this->actingAs($this->adminUser())
             ->patchJson('/api/admin/settings', [
                 'time_slot_interval_minutes' => 60,
-            ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['opening_time']);
+            ]);
+
+        $this->assertApiValidationError($response, ['openingTime']);
     }
 
     public function test_update_accepts_aligned_times_with_60_minute_interval(): void

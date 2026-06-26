@@ -21,12 +21,12 @@ class TableTest extends TestCase
     private function tableData(array $overrides = []): array
     {
         return array_merge([
-            'name'         => 'Mesa 1',
-            'min_capacity' => 2,
-            'max_capacity' => 4,
-            'location'     => 'interior',
-            'description'  => null,
-            'is_active'    => true,
+            'name'        => 'Mesa 1',
+            'minCapacity' => 2,
+            'maxCapacity' => 4,
+            'location'    => 'interior',
+            'description' => null,
+            'isActive'    => true,
         ], $overrides);
     }
 
@@ -115,20 +115,18 @@ class TableTest extends TestCase
         $response = $this->actingAs($this->adminUser())
             ->postJson('/api/admin/tables', $this->tableData());
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['name']);
+        $this->assertApiValidationError($response, ['name']);
     }
 
     public function test_max_capacity_must_be_greater_than_or_equal_to_min_capacity(): void
     {
         $response = $this->actingAs($this->adminUser())
             ->postJson('/api/admin/tables', $this->tableData([
-                'min_capacity' => 6,
-                'max_capacity' => 2,
+                'minCapacity' => 6,
+                'maxCapacity' => 2,
             ]));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['max_capacity']);
+        $this->assertApiValidationError($response, ['maxCapacity']);
     }
 
     public function test_partial_update_max_capacity_rejects_value_below_existing_min(): void
@@ -137,11 +135,10 @@ class TableTest extends TestCase
 
         $response = $this->actingAs($this->adminUser())
             ->putJson("/api/admin/tables/{$table->id}", [
-                'max_capacity' => 2,
+                'maxCapacity' => 2,
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['max_capacity']);
+        $this->assertApiValidationError($response, ['maxCapacity']);
     }
 
     public function test_partial_update_min_capacity_rejects_value_above_existing_max(): void
@@ -150,11 +147,10 @@ class TableTest extends TestCase
 
         $response = $this->actingAs($this->adminUser())
             ->putJson("/api/admin/tables/{$table->id}", [
-                'min_capacity' => 6,
+                'minCapacity' => 6,
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['min_capacity']);
+        $this->assertApiValidationError($response, ['minCapacity']);
     }
 
     public function test_admin_can_clear_nullable_fields(): void

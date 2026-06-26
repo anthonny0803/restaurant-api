@@ -26,9 +26,9 @@ class AvailableTablesTest extends TestCase
     private function queryParams(array $overrides = []): array
     {
         return array_merge([
-            'seats_requested' => 4,
+            'seatsRequested' => 4,
             'date' => $this->date,
-            'start_time' => '20:00',
+            'startTime' => '20:00',
         ], $overrides);
     }
 
@@ -145,8 +145,7 @@ class AvailableTablesTest extends TestCase
     {
         $response = $this->getJson('/api/reservations/available-tables');
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['seats_requested', 'date', 'start_time']);
+        $this->assertApiValidationError($response, ['seatsRequested', 'date', 'startTime']);
     }
 
     public function test_rejects_past_date(): void
@@ -155,8 +154,7 @@ class AvailableTablesTest extends TestCase
             $this->queryParams(['date' => now()->subDay()->format('Y-m-d')])
         ));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['date']);
+        $this->assertApiValidationError($response, ['date']);
     }
 
     public function test_rejects_date_beyond_one_week(): void
@@ -165,18 +163,16 @@ class AvailableTablesTest extends TestCase
             $this->queryParams(['date' => now()->addDays(8)->format('Y-m-d')])
         ));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['date']);
+        $this->assertApiValidationError($response, ['date']);
     }
 
     public function test_rejects_start_time_not_aligned_to_interval(): void
     {
         $response = $this->getJson('/api/reservations/available-tables?' . http_build_query(
-            $this->queryParams(['start_time' => '20:15'])
+            $this->queryParams(['startTime' => '20:15'])
         ));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['start_time']);
+        $this->assertApiValidationError($response, ['startTime']);
     }
 
     // ── Access ────────────────────────────────────────────────
