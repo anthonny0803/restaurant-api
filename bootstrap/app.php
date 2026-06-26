@@ -3,6 +3,8 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -16,10 +18,28 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
         ]);
 
-        $middleware->api(append: [
-            \App\Http\Middleware\TransformApiResponse::class,
-        ]);
+        $middleware->api(
+            prepend: [
+                \App\Http\Middleware\NormalizeApiRequestKeys::class,
+            ],
+            append: [
+                \App\Http\Middleware\TransformApiResponse::class,
+            ],
+        );
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->render(function (ValidationException $e, Request $request) {
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            return response()->json([
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'fields' => collect($e->errors())
+                        ->map(fn (array $messages) => $messages[0])
+                        ->all(),
+                ],
+            ], 422);
+        });
     })->create();

@@ -136,8 +136,7 @@ class ProfileTest extends TestCase
         $response = $this->actingAs($user)
             ->putJson('/api/profile', ['phone' => '12345']);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['phone']);
+        $this->assertApiValidationError($response, ['phone']);
     }
 
     public function test_update_accepts_valid_spanish_phone(): void
@@ -217,8 +216,7 @@ class ProfileTest extends TestCase
                 'password_confirmation' => 'NewSecure1!',
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['current_password']);
+        $this->assertApiValidationError($response, ['currentPassword']);
     }
 
     public function test_password_change_requires_confirmation(): void
@@ -231,8 +229,7 @@ class ProfileTest extends TestCase
                 'password' => 'NewSecure1!',
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['password']);
+        $this->assertApiValidationError($response, ['password']);
     }
 
     public function test_password_change_rejects_weak_password(): void
@@ -246,8 +243,7 @@ class ProfileTest extends TestCase
                 'password_confirmation' => '123',
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['password']);
+        $this->assertApiValidationError($response, ['password']);
     }
 
     public function test_unauthenticated_user_cannot_change_password(): void

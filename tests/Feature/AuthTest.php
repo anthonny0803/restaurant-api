@@ -85,8 +85,7 @@ class AuthTest extends TestCase
         $this->postJson('/api/auth/register', $data);
         $response = $this->postJson('/api/auth/register', $data);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+        $this->assertApiValidationError($response, ['email']);
     }
 
     public function test_register_rejects_weak_password(): void
@@ -100,8 +99,7 @@ class AuthTest extends TestCase
             'password_confirmation' => '12345678',
         ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['password']);
+        $this->assertApiValidationError($response, ['password']);
     }
 
     public function test_register_requires_password_confirmation(): void
@@ -114,8 +112,7 @@ class AuthTest extends TestCase
             'password'              => 'Password1',
         ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['password']);
+        $this->assertApiValidationError($response, ['password']);
     }
 
     public function test_register_requires_email_confirmation(): void
@@ -128,8 +125,7 @@ class AuthTest extends TestCase
             'password_confirmation' => 'Password1',
         ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+        $this->assertApiValidationError($response, ['email']);
     }
 
     public function test_register_rejects_mismatched_email_confirmation(): void
@@ -143,8 +139,7 @@ class AuthTest extends TestCase
             'password_confirmation' => 'Password1',
         ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+        $this->assertApiValidationError($response, ['email']);
     }
 
     public function test_register_requires_phone(): void
@@ -157,8 +152,7 @@ class AuthTest extends TestCase
             'password_confirmation' => 'Password1',
         ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['phone']);
+        $this->assertApiValidationError($response, ['phone']);
     }
 
     public function test_register_rejects_invalid_phone_format(): void
@@ -172,8 +166,7 @@ class AuthTest extends TestCase
             'password_confirmation' => 'Password1',
         ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['phone']);
+        $this->assertApiValidationError($response, ['phone']);
     }
 
     public function test_user_can_login(): void
@@ -222,8 +215,7 @@ class AuthTest extends TestCase
             'password' => 'wrong-password',
         ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+        $this->assertApiValidationError($response, ['email']);
     }
 
     public function test_user_can_logout(): void

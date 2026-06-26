@@ -105,8 +105,7 @@ class ReservationTest extends TestCase
                 'start_time' => '20:00',
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['table_id']);
+        $this->assertApiValidationError($response, ['tableId']);
     }
 
     public function test_hold_rejects_seats_outside_table_capacity(): void
@@ -123,8 +122,7 @@ class ReservationTest extends TestCase
                 'start_time' => '20:00',
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['seats_requested']);
+        $this->assertApiValidationError($response, ['seatsRequested']);
     }
 
     public function test_hold_rejects_past_date(): void
@@ -136,8 +134,7 @@ class ReservationTest extends TestCase
                 'date' => now()->subDay()->format('Y-m-d'),
             ]));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['date']);
+        $this->assertApiValidationError($response, ['date']);
     }
 
     public function test_hold_rejects_date_beyond_one_week(): void
@@ -149,8 +146,7 @@ class ReservationTest extends TestCase
                 'date' => now()->addDays(8)->format('Y-m-d'),
             ]));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['date']);
+        $this->assertApiValidationError($response, ['date']);
     }
 
     public function test_hold_cancels_previous_pending_and_creates_new(): void
@@ -411,8 +407,7 @@ class ReservationTest extends TestCase
                 'start_time' => '20:30',
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['table_id']);
+        $this->assertApiValidationError($response, ['tableId']);
     }
 
     public function test_admin_cannot_create_reservation(): void
@@ -568,8 +563,7 @@ class ReservationTest extends TestCase
         $response = $this->actingAs($client)
             ->postJson("/api/reservations/{$reservation->id}/cancel");
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['reservation']);
+        $this->assertApiValidationError($response, ['reservation']);
     }
 
     public function test_client_cannot_cancel_others_reservation(): void
@@ -598,8 +592,7 @@ class ReservationTest extends TestCase
                 'start_time' => '20:15',
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['start_time']);
+        $this->assertApiValidationError($response, ['startTime']);
     }
 
     public function test_hold_accepts_start_time_aligned_to_time_slot_interval(): void
@@ -674,8 +667,7 @@ class ReservationTest extends TestCase
                 'start_time' => now()->subHours(2)->format('H:i'),
             ]));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['date']);
+        $this->assertApiValidationError($response, ['date']);
     }
 
     // ── Transaction rollback ────────────────────────────────
@@ -753,8 +745,7 @@ class ReservationTest extends TestCase
                 'start_time' => '11:00',
             ]));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['start_time']);
+        $this->assertApiValidationError($response, ['startTime']);
     }
 
     public function test_hold_rejects_reservation_ending_after_closing(): void
@@ -772,8 +763,7 @@ class ReservationTest extends TestCase
                 'start_time' => '21:30',
             ]));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['start_time']);
+        $this->assertApiValidationError($response, ['startTime']);
     }
 
     public function test_available_tables_rejects_time_outside_business_hours(): void
@@ -786,8 +776,7 @@ class ReservationTest extends TestCase
             'seats_requested' => 2,
         ]));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['start_time']);
+        $this->assertApiValidationError($response, ['startTime']);
     }
 
     // ── Concurrency / locking ────────────────────────────────
@@ -799,8 +788,7 @@ class ReservationTest extends TestCase
         $response = $this->actingAs($this->clientUser())
             ->postJson('/api/reservations', $this->holdData(['table_id' => 99999]));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['table_id']);
+        $this->assertApiValidationError($response, ['tableId']);
     }
 
     public function test_hold_acquires_pessimistic_lock_on_table_before_overlap_check(): void

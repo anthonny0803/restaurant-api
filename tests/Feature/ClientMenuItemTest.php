@@ -86,8 +86,7 @@ class ClientMenuItemTest extends TestCase
     {
         $response = $this->getJson('/api/menu-items?category=invalida');
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['category']);
+        $this->assertApiValidationError($response, ['category']);
     }
 
     public function test_can_filter_featured_items(): void

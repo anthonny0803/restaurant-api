@@ -37,10 +37,10 @@ class GuestReservationTest extends TestCase
             'name' => 'Juan Perez',
             'email' => 'juan@example.com',
             'phone' => '612345678',
-            'table_id' => Table::factory()->create()->id,
-            'seats_requested' => 2,
+            'tableId' => Table::factory()->create()->id,
+            'seatsRequested' => 2,
             'date' => now()->addDays(3)->format('Y-m-d'),
-            'start_time' => '20:00',
+            'startTime' => '20:00',
         ], $overrides);
     }
 
@@ -67,7 +67,7 @@ class GuestReservationTest extends TestCase
         $table = Table::factory()->create();
 
         $response = $this->postJson('/api/guest/reservations', $this->guestHoldData([
-            'table_id' => $table->id,
+            'tableId' => $table->id,
         ]));
 
         $response->assertStatus(201)
@@ -107,8 +107,7 @@ class GuestReservationTest extends TestCase
             'email' => 'registered@example.com',
         ]));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+        $this->assertApiValidationError($response, ['email']);
     }
 
     public function test_guest_hold_reuses_existing_lazy_user(): void
@@ -124,7 +123,7 @@ class GuestReservationTest extends TestCase
 
         $response = $this->postJson('/api/guest/reservations', $this->guestHoldData([
             'email' => 'lazy@example.com',
-            'table_id' => $table->id,
+            'tableId' => $table->id,
         ]));
 
         $response->assertStatus(201);
@@ -144,8 +143,7 @@ class GuestReservationTest extends TestCase
 
         $response = $this->postJson('/api/guest/reservations', []);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['name', 'email', 'phone', 'table_id', 'seats_requested', 'date', 'start_time']);
+        $this->assertApiValidationError($response, ['name', 'email', 'phone', 'tableId', 'seatsRequested', 'date', 'startTime']);
     }
 
     public function test_guest_hold_rejects_invalid_phone_format(): void
@@ -156,8 +154,7 @@ class GuestReservationTest extends TestCase
             'phone' => '+34612345678',
         ]));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['phone']);
+        $this->assertApiValidationError($response, ['phone']);
     }
 
     public function test_guest_hold_cancels_previous_pending_and_creates_new(): void
@@ -194,7 +191,7 @@ class GuestReservationTest extends TestCase
         $secondTable = Table::factory()->create();
 
         $this->postJson('/api/guest/reservations', $this->guestHoldData([
-            'table_id' => $table->id,
+            'tableId' => $table->id,
         ]));
 
         $firstReservation = Reservation::first();
@@ -207,7 +204,7 @@ class GuestReservationTest extends TestCase
         ]);
 
         $response = $this->postJson('/api/guest/reservations', $this->guestHoldData([
-            'table_id' => $secondTable->id,
+            'tableId' => $secondTable->id,
         ]));
 
         $response->assertStatus(201)
@@ -220,10 +217,9 @@ class GuestReservationTest extends TestCase
         $this->paymentServiceMock->shouldNotReceive('createPaymentIntent');
 
         $response = $this->postJson('/api/guest/reservations', $this->guestHoldData([
-            'start_time' => '20:15',
+            'startTime' => '20:15',
         ]));
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['start_time']);
+        $this->assertApiValidationError($response, ['startTime']);
     }
 }

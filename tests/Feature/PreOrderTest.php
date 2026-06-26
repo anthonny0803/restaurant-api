@@ -76,7 +76,7 @@ class PreOrderTest extends TestCase
 
         $response = $this->actingAs($client)
             ->postJson("/api/reservations/{$reservation->id}/pre-orders", [
-                'menu_item_id' => $menuItem->id,
+                'menuItemId' => $menuItem->id,
                 'quantity' => 2,
             ]);
 
@@ -102,7 +102,7 @@ class PreOrderTest extends TestCase
 
         $this->actingAs($client)
             ->postJson("/api/reservations/{$reservation->id}/pre-orders", [
-                'menu_item_id' => $menuItem->id,
+                'menuItemId' => $menuItem->id,
                 'quantity' => 3,
             ]);
 
@@ -121,7 +121,7 @@ class PreOrderTest extends TestCase
 
         $this->actingAs($client)
             ->postJson("/api/reservations/{$reservation->id}/pre-orders", [
-                'menu_item_id' => $menuItem->id,
+                'menuItemId' => $menuItem->id,
                 'quantity' => 5,
             ]);
 
@@ -139,12 +139,11 @@ class PreOrderTest extends TestCase
 
         $response = $this->actingAs($client)
             ->postJson("/api/reservations/{$reservation->id}/pre-orders", [
-                'menu_item_id' => $menuItem->id,
+                'menuItemId' => $menuItem->id,
                 'quantity' => 1,
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['reservation']);
+        $this->assertApiValidationError($response, ['reservation']);
     }
 
     public function test_store_rejects_unavailable_menu_item(): void
@@ -155,12 +154,11 @@ class PreOrderTest extends TestCase
 
         $response = $this->actingAs($client)
             ->postJson("/api/reservations/{$reservation->id}/pre-orders", [
-                'menu_item_id' => $menuItem->id,
+                'menuItemId' => $menuItem->id,
                 'quantity' => 1,
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['menu_item_id']);
+        $this->assertApiValidationError($response, ['menuItemId']);
     }
 
     public function test_store_rejects_insufficient_stock(): void
@@ -171,12 +169,11 @@ class PreOrderTest extends TestCase
 
         $response = $this->actingAs($client)
             ->postJson("/api/reservations/{$reservation->id}/pre-orders", [
-                'menu_item_id' => $menuItem->id,
+                'menuItemId' => $menuItem->id,
                 'quantity' => 5,
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['quantity']);
+        $this->assertApiValidationError($response, ['quantity']);
     }
 
     public function test_store_rejects_duplicate_menu_item(): void
@@ -193,12 +190,11 @@ class PreOrderTest extends TestCase
 
         $response = $this->actingAs($client)
             ->postJson("/api/reservations/{$reservation->id}/pre-orders", [
-                'menu_item_id' => $menuItem->id,
+                'menuItemId' => $menuItem->id,
                 'quantity' => 1,
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['menu_item_id']);
+        $this->assertApiValidationError($response, ['menuItemId']);
     }
 
     public function test_store_rejects_nonexistent_menu_item(): void
@@ -208,12 +204,11 @@ class PreOrderTest extends TestCase
 
         $response = $this->actingAs($client)
             ->postJson("/api/reservations/{$reservation->id}/pre-orders", [
-                'menu_item_id' => 9999,
+                'menuItemId' => 9999,
                 'quantity' => 1,
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['menu_item_id']);
+        $this->assertApiValidationError($response, ['menuItemId']);
     }
 
     public function test_store_rejects_invalid_quantity(): void
@@ -224,12 +219,11 @@ class PreOrderTest extends TestCase
 
         $response = $this->actingAs($client)
             ->postJson("/api/reservations/{$reservation->id}/pre-orders", [
-                'menu_item_id' => $menuItem->id,
+                'menuItemId' => $menuItem->id,
                 'quantity' => 0,
             ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['quantity']);
+        $this->assertApiValidationError($response, ['quantity']);
     }
 
     // ── Concurrency / locking ─────────────────────────────────
@@ -245,7 +239,7 @@ class PreOrderTest extends TestCase
 
         $this->actingAs($client)
             ->postJson("/api/reservations/{$reservation->id}/pre-orders", [
-                'menu_item_id' => $menuItem->id,
+                'menuItemId' => $menuItem->id,
                 'quantity' => 1,
             ])
             ->assertStatus(201);
@@ -264,18 +258,18 @@ class PreOrderTest extends TestCase
 
         $this->actingAs($client)
             ->postJson("/api/reservations/{$firstReservation->id}/pre-orders", [
-                'menu_item_id' => $menuItem->id,
+                'menuItemId' => $menuItem->id,
                 'quantity' => 1,
             ])
             ->assertStatus(201);
 
-        $this->actingAs($otherClient)
+        $response = $this->actingAs($otherClient)
             ->postJson("/api/reservations/{$secondReservation->id}/pre-orders", [
-                'menu_item_id' => $menuItem->id,
+                'menuItemId' => $menuItem->id,
                 'quantity' => 1,
-            ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['quantity']);
+            ]);
+
+        $this->assertApiValidationError($response, ['quantity']);
 
         $this->assertDatabaseHas('menu_items', [
             'id' => $menuItem->id,
@@ -367,8 +361,7 @@ class PreOrderTest extends TestCase
         $response = $this->actingAs($client)
             ->deleteJson("/api/reservations/{$reservation->id}/pre-orders/{$item->id}");
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['reservation']);
+        $this->assertApiValidationError($response, ['reservation']);
     }
 
     // ── Authorization ─────────────────────────────────────────
@@ -394,7 +387,7 @@ class PreOrderTest extends TestCase
 
         $response = $this->actingAs($other)
             ->postJson("/api/reservations/{$reservation->id}/pre-orders", [
-                'menu_item_id' => $menuItem->id,
+                'menuItemId' => $menuItem->id,
                 'quantity' => 1,
             ]);
 
