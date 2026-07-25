@@ -84,12 +84,6 @@ class Reservation extends Model
         return $query->where('status', self::STATUS_CONFIRMED);
     }
 
-    public function scopeExpired(Builder $query): Builder
-    {
-        return $query->where('status', self::STATUS_PENDING)
-            ->where('expires_at', '<=', now());
-    }
-
     public function scopeForTable(Builder $query, int $tableId): Builder
     {
         return $query->where('table_id', $tableId);
