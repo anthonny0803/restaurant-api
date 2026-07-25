@@ -5,7 +5,6 @@ namespace App\Repositories;
 use App\Models\CancellationPolicySnapshot;
 use App\Models\Reservation;
 use App\Models\Table;
-use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -66,11 +65,6 @@ class ReservationRepository
         return Reservation::with(['table', 'payment'])
             ->latest()
             ->paginate($perPage);
-    }
-
-    public function findExpired(): Collection
-    {
-        return Reservation::expired()->get();
     }
 
     public function confirmedReservationsForCapacity(int $seatsRequested, string $date): \Illuminate\Support\Collection
